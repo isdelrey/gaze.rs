@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: server
+  name: server
+  namespace: default
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      containers:
+        - image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server
+          imagePullPolicy: IfNotPresent
+          name: server-sha256-1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server-service
+spec:
+  clusterIP: 10.0.18.214
+  selector:
+    app: server
+  type: ClusterIP
+  ports:
+    - name: tcp
+      port: 6142
+      targetPort: 6142
+      protocol: TCP

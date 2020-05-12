@@ -1,0 +1,101 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - "-t"
+      - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:$COMMIT_SHA"
+      - .
+      - "-f"
+      - Dockerfile
+    dir: .
+    id: Build server
+    waitFor: ["-"]
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - "-t"
+      - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA"
+      - .
+      - "-f"
+      - Dockerfile
+    dir: client
+    id: Build client
+    waitFor: ["-"]
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:$COMMIT_SHA"
+    id: Push server image
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA"
+    id: Push client image
+
+  - name: gcr.io/cloud-builders/gke-deploy
+    args:
+      - prepare
+      - "--filename=deploy/server.yaml"
+      - "--image=gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:$COMMIT_SHA"
+      - "--app=server"
+      - "--version=$COMMIT_SHA"
+      - "--namespace=default"
+      - "--annotation=gcb-build-id=$BUILD_ID"
+      - "--output=output/server"
+    id: Prepare deploy for server
+
+  - name: gcr.io/cloud-builders/gke-deploy
+    args:
+      - prepare
+      - "--filename=deploy/client.yaml"
+      - "--image=gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA"
+      - "--app=client"
+      - "--version=$COMMIT_SHA"
+      - "--namespace=default"
+      - "--annotation=gcb-build-id=$BUILD_ID"
+      - "--output=output/client"
+    id: Prepare deploy for client
+
+  - name: gcr.io/cloud-builders/gsutil
+    args:
+      - "-c"
+      - |-
+        gsutil cp -r output/server/suggested gs://tfg-ivo_cloudbuild/deploy/config/server/$BUILD_ID/suggested
+        gsutil cp -r output/server/expanded gs://tfg-ivo_cloudbuild/deploy/config/server/$BUILD_ID/expanded
+    id: Save configs for server
+    entrypoint: sh
+
+  - name: gcr.io/cloud-builders/gke-deploy
+    args:
+      - apply
+      - "--filename=output/server/expanded"
+      - "--cluster=benchmarking-cluster-4"
+      - "--location=europe-west3-b"
+      - "--namespace=default"
+    id: Apply deploy for server
+
+  - name: gcr.io/cloud-builders/gsutil
+    args:
+      - "-c"
+      - |-
+        gsutil cp -r output/client/suggested gs://tfg-ivo_cloudbuild/deploy/config/client/$BUILD_ID/suggested
+        gsutil cp -r output/client/expanded gs://tfg-ivo_cloudbuild/deploy/config/client/$BUILD_ID/expanded
+    id: Save configs for client
+    entrypoint: sh
+
+  - name: gcr.io/cloud-builders/gke-deploy
+    args:
+      - apply
+      - "--filename=output/client/expanded"
+      - "--cluster=benchmarking-cluster-4"
+      - "--location=europe-west3-b"
+      - "--namespace=default"
+    id: Apply deploy for client
+
+images:
+  - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:$COMMIT_SHA"
+  - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA"
+tags:
+  - gcp-cloud-build-deploy
+  - server

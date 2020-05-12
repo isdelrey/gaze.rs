@@ -3,7 +3,7 @@ steps:
     args:
       - --destination=gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:$COMMIT_SHA
       - --cache=true
-      - --cache-ttl=XXh
+      - --cache-ttl=240h
     dir: .
     id: Build server
     waitFor: ["-"]
@@ -12,7 +12,7 @@ steps:
     args:
       - --destination=gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA
       - --cache=true
-      - --cache-ttl=XXh
+      - --cache-ttl=240h
     dir: client
     id: Build client
     waitFor: ["-"]

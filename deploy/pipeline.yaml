@@ -1,37 +1,21 @@
 steps:
-  - name: gcr.io/cloud-builders/docker
+  - name: "gcr.io/kaniko-project/executor:latest"
     args:
-      - build
-      - "-t"
-      - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:$COMMIT_SHA"
-      - .
-      - "-f"
-      - Dockerfile
+      - --destination=gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:$COMMIT_SHA
+      - --cache=true
+      - --cache-ttl=XXh
     dir: .
     id: Build server
     waitFor: ["-"]
-  - name: gcr.io/cloud-builders/docker
+
+  - name: "gcr.io/kaniko-project/executor:latest"
     args:
-      - build
-      - "-t"
-      - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA"
-      - .
-      - "-f"
-      - Dockerfile
+      - --destination=gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA
+      - --cache=true
+      - --cache-ttl=XXh
     dir: client
     id: Build client
     waitFor: ["-"]
-
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:$COMMIT_SHA"
-    id: Push server image
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - "gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA"
-    id: Push client image
 
   - name: gcr.io/cloud-builders/gke-deploy
     args:
@@ -99,3 +83,4 @@ images:
 tags:
   - gcp-cloud-build-deploy
   - server
+timeout: 15m

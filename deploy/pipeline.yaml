@@ -83,4 +83,4 @@ images:
 tags:
   - gcp-cloud-build-deploy
   - server
-timeout: 15m
+timeout: 30m

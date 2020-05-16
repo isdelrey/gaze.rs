@@ -8,8 +8,8 @@ spec:
   template:
     spec:
       containers:
-        - image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client
-          imagePullPolicy: IfNotPresent
-          name: client
+        - name: client
+          image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client
+          imagePullPolicy: Always
       restartPolicy: Never
   backoffLimit: 10

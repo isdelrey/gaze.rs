@@ -13,6 +13,7 @@ steps:
       - --destination=gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:$COMMIT_SHA
       - --cache=true
       - --cache-ttl=240h
+      - --context=dir://client
     dir: client
     id: Build client
     waitFor: ["-"]

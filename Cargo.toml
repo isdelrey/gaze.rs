@@ -9,5 +9,5 @@ tokio = { version = "0.2", features = ["full"] }
 tokio-util = { version = "0.3", features = ["codec"] }
 futures = "0.3"
 derive_more = { version = "0.99.5", features = ["from"] }
-avro-rs = "0.9.1"
 failure = "0.1.7"
+serde_json = "1.0.53"

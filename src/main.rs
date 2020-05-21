@@ -9,6 +9,7 @@ mod schema;
 mod selection;
 mod server;
 mod subscription;
+mod codec;
 
 
 use std::thread;

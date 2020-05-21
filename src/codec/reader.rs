@@ -1,7 +1,7 @@
-use tokio::io::AsyncRead;
-use avro_rs::{Schema};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use failure::Error;
 use std::collections::HashMap;
+use crate::client::Client;
 
 #[derive(Debug, PartialEq)]
 pub enum Type<'a> {
@@ -9,34 +9,48 @@ pub enum Type<'a> {
     Record(HashMap<&'a str, Type<'a>>)
 }
 
+pub enum Model {
+    Null,
+    Boolean,
+    Int,
+    Long,
+    Float,
+    Double,
+    Bytes,
+    String,
+    Record
+}
 
+pub struct Schema {
+    type: Type
+}
 
 /* We want to give the following function a record encoded with a schema
 and we want it to return a map with the position of the fields */
-pub fn map_fields<'a>(schema: &Schema, record: &[u8], offset: usize) -> Result<Type<'a>, Error> {
-    match *schema {
-        Schema::Null => {
+pub fn read<'a, R: AsyncReadExt>(model: &Model, reader: R, offset: usize) -> Result<Type<'a>, Error> {
+    match *model {
+        Model::Null => {
             Ok(Type::Literal(offset))
         },
-        Schema::Boolean => {
+        Model::Boolean => {
             Ok(Type::Literal(offset))
         },
-        Schema::Int => {
+        Model::Int => {
             Ok(Type::Literal(offset))
         },
-        Schema::Long => {
+        Model::Long => {
             Ok(Type::Literal(offset))
         },
-        Schema::Float => {
+        Model::Float => {
             Ok(Type::Literal(offset))
         },
-        Schema::Double => {
+        Model::Double => {
             Ok(Type::Literal(offset))
         },
-        Schema::Bytes => {
+        Model::Bytes => {
             Ok(Type::Literal(offset))
         },
-        Schema::String => {
+        Model::String => {
             Ok(Type::Literal(offset))
         },
         _ => Ok(Type::Literal(offset))

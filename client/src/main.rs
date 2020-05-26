@@ -1,29 +1,20 @@
-use std::net::TcpStream;
+mod gaze;
+
 use std::error::Error;
+use std::io::{Read, Write};
 use std::boxed::Box;
-use fasthash::{metro, MetroHasher};
+use gaze::Gaze;
 
 fn main() -> Result<(), Box<dyn Error>>  {
+
+    /* Report start: */
     println!("Started");
 
-    let ip = if let ip = std::env::var("IP").unwrap() {ip} else {"10.0.18.214".to_string()};
-    
-    println!("Connecting to {}:6142", ip);
-    let socket: TcpStream = match TcpStream::connect(format!("{}:6142", ip)) {
-        Ok(socket) => socket,
-        Err(error) => {
-            println!("Cannot connect to server: {}", error);
-            return Err(Box::new(error))
-        }
-    };
+    /* Connect: */
+    let mut gaze = Gaze::connect().unwrap();
 
-    println!("Connected to {}", socket.peer_addr().unwrap());
+    /* Publish: */
+    gaze.publish().unwrap();
 
-    socket.write(protocol::publish("hello"));
-
-    let hash = metro::hash64(b"hello world\xff");
-
-    socket.write(hash);
-
-    Ok(())    
+    Ok(())
 }

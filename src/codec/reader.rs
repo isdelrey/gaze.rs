@@ -1,7 +1,6 @@
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt};
 use failure::Error;
 use std::collections::HashMap;
-use crate::client::Client;
 
 #[derive(Debug, PartialEq)]
 pub enum Type<'a> {
@@ -21,9 +20,6 @@ pub enum Model {
     Record
 }
 
-pub struct Schema {
-    type: Type
-}
 
 /* We want to give the following function a record encoded with a schema
 and we want it to return a map with the position of the fields */
@@ -56,7 +52,7 @@ pub fn read<'a, R: AsyncReadExt>(model: &Model, reader: R, offset: usize) -> Res
         _ => Ok(Type::Literal(offset))
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use avro_rs::{Schema};
@@ -93,4 +89,4 @@ mod tests {
         
         assert_eq!(map, Type::Literal(0))
     }
-}
+}*/

@@ -1,31 +1,34 @@
 use tokio::net::{TcpStream};
+use tokio::io::{AsyncRead, AsyncBufReadExt};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::prelude::*;
-use std::str;
-use std::sync::{Arc};
+use std::sync::{Arc, Weak};
 use futures::lock::Mutex;
 use crate::errors::{ReceiveStringError};
 use crate::selection::Selection;
-use tokio::io::{ReadHalf, WriteHalf};
+
 
 pub struct Client {
-    reader: Arc<Mutex<ReadHalf>>,
-    writer: Arc<Mutex<WriteHalf>>,
+    pub id: String,
+    pub reader: Arc<Mutex<OwnedReadHalf>>,
+    pub writer: Arc<Mutex<OwnedWriteHalf>>,
     pub address: String,
-    selection: Vec<Selection>
+    pub selection: Vec<Selection>
 }
 
 
-impl<'a> Client {
-    pub fn new(stream: TcpStream) -> Result<Client, std::io::Error> {
-        let address = stream.peer_addr()?.to_string();
-        let (reader, writer): (ReadHalf, WriteHalf) = stream.split();
+impl Client {
+    pub fn new(id: String, stream: TcpStream) -> Client {
+        let address = stream.peer_addr().unwrap().to_string();
+        let (reader, writer) = stream.into_split();
 
-        Ok(Client {
+        Client {
+            id,
             reader: Arc::new(Mutex::new(reader)),
             writer: Arc::new(Mutex::new(writer)),
             address,
             selection: Vec::new()
-        })
+        }
     }
     /*
     pub async fn receive_string(&self, separator: u8) -> std::result::Result<String, ReceiveStringError> {
@@ -52,7 +55,7 @@ impl<'a> Client {
     }
     pub async fn send_string(&self, content: &str, separator: Option<char>) -> std::result::Result<(), std::io::Error> {
         self.send(String::from(content).as_bytes(), separator.as_ref().map(|x| *x as u8)).await
-    }*/
+    }
     pub async fn send(&self, content: &[u8], separator: Option<u8>) -> std::result::Result<(), std::io::Error> {
         let mut stream = self.writer.lock().await;
 
@@ -62,10 +65,5 @@ impl<'a> Client {
         }
 
         Ok(())
-    }
-    pub async fn end(&self) -> std::result::Result<(), std::io::Error> {
-        let mut stream = self.stream.lock().await;
-
-        stream.shutdown().await
-    }
+    }*/
 }

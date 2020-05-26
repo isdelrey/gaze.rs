@@ -5,9 +5,11 @@ authors = ["Ivo Sequeros <ivosequeros@me.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = { version = "0.2", features = ["full"] }
-tokio-util = { version = "0.3", features = ["codec"] }
+tokio = { version = "0.2.21", features = ["full"] }
+tokio-util = { version = "0.3", features = ["full"] }
 futures = "0.3"
 derive_more = { version = "0.99.5", features = ["from"] }
 failure = "0.1.7"
 serde_json = "1.0.53"
+uuid = "0.8"
+async-trait = "0.1.31"

@@ -1,13 +1,13 @@
 use crate::client::Client;
 use std::sync::Arc;
 
-pub struct Router {
+pub struct ServerRouter {
     pub clients: Vec<Arc<Client>>
 }
 
-impl Router {
-    pub fn new() -> Router {
-        Router {
+impl ServerRouter {
+    pub fn new() -> ServerRouter {
+        ServerRouter {
             clients: vec![]
         }
     }

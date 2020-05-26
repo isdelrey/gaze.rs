@@ -27,3 +27,7 @@ pub enum ReceiveStringError {
     IO(std::io::Error),
     Utf8(std::str::Utf8Error)
 }
+
+#[derive(Debug, From)]
+pub enum EatingError {
+}

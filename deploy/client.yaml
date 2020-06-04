@@ -18,6 +18,9 @@ spec:
         app: client
     spec:
       containers:
-        - image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client
+        - image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client:6efbd4b34aba5cc4d543c9f550e40c0f0bfafa05
           imagePullPolicy: IfNotPresent
           name: client-sha256-1
+          env:
+            - name: IP
+              value: 10.0.18.214

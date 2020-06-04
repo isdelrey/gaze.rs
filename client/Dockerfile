@@ -6,4 +6,4 @@ COPY . .
 
 RUN cargo build --release
 
-CMD ["/usr/src/target/release/gaze-client"]
+CMD ["/usr/src/target/release/gaze_client"]

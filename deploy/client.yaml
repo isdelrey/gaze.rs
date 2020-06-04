@@ -1,15 +1,23 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
+  labels:
+    app: client
   name: client
+  namespace: default
 spec:
-  parallelism: 10
-  ttlSecondsAfterFinished: 0
+  replicas: 10
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: client
   template:
+    metadata:
+      labels:
+        app: client
     spec:
       containers:
-        - name: client
-          image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client
-          imagePullPolicy: Always
-      restartPolicy: Never
-  backoffLimit: 10
+        - image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-client
+          imagePullPolicy: IfNotPresent
+          name: client-sha256-1

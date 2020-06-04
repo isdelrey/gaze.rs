@@ -1,6 +1,7 @@
 mod gaze;
 mod actor;
 
+use std::thread;
 use futures::future::{join_all};
 
 #[tokio::main]
@@ -12,6 +13,8 @@ async fn main() {
     }
 
     join_all(handles).await;
+
+    thread::park()
 
     ()
 }

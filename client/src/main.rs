@@ -1,20 +1,17 @@
 mod gaze;
+mod actor;
 
-use std::error::Error;
-use std::io::{Read, Write};
-use std::boxed::Box;
-use gaze::Gaze;
+use futures::future::{join_all};
 
-fn main() -> Result<(), Box<dyn Error>>  {
+#[tokio::main]
+async fn main() {
+    let mut handles = Vec::with_capacity(100);
+    /* Run actors: */
+    for _ in 1..10 {
+        handles.push(tokio::spawn(actor::run()));
+    }
 
-    /* Report start: */
-    println!("Started");
+    join_all(handles).await;
 
-    /* Connect: */
-    let mut gaze = Gaze::connect().unwrap();
-
-    /* Publish: */
-    gaze.publish().unwrap();
-
-    Ok(())
+    ()
 }

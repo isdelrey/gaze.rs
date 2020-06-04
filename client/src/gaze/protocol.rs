@@ -1,32 +1,70 @@
-use std::time::SystemTime;
-use crate::gaze::encode::{IntoI128, IntoU128, VarInt};
-use rand::prelude::*;
+use async_trait::async_trait;
+use crate::gaze::numbers::VarIntEncoder;
+use crate::gaze::command::Command;
+use tokio::io::{AsyncReadExt,AsyncWriteExt};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use std::convert::TryFrom;
 
-pub enum Command {
-    Publish = 0x07, /* UTF8: BELL */
-    Subscribe = 0x05, /* UTF8: ENQUIRY */
-    Ack = 0x06, /* UTF8: ACK */
-    Nack = 0x15 /* UTF8: NACK */
+#[async_trait]
+pub trait ReadProtocol {
+    async fn read_command(&mut self) -> Result<Command, ()>;
+    async fn read_ack(&mut self) -> Vec<u8>;
 }
 
-pub fn publish(id: &[u8], content: &[u8]) -> Vec<u8> {
-    [&[Command::Publish as u8], id, content].concat().to_vec()
+#[async_trait]
+impl ReadProtocol for OwnedReadHalf {
+    async fn read_command(&mut self) -> Result<Command, ()> {
+        let mut command = [0u8; 1];
+
+        match self.read_exact(&mut command).await {
+            Ok(_) => Ok(Command::try_from(command[0]).unwrap()),
+            Err(_) => Err(())
+
+        }
+    }
+
+    async fn read_ack(&mut self) -> Vec<u8> {
+        let mut received_id: Vec<u8> = [0u8; 10].to_vec();
+        self.read_exact(&mut received_id).await.unwrap();
+
+        received_id
+    }
 }
 
-pub fn ack(id: &[u8]) -> Vec<u8> {
-    [&[Command::Subscribe as u8], id].concat().to_vec()
+
+#[async_trait]
+pub trait WriteProtocol {
+    async fn write_command(&mut self, command: Command);
+    async fn write_size(&mut self, size: usize);
+    async fn write_ack(&mut self, id: Vec<u8>);
+    async fn write_nack(&mut self, id: Vec<u8>);
+    async fn write_id(&mut self, id: &[u8]);
 }
 
-pub fn nack(id: &[u8]) -> Vec<u8> {
-    [&[Command::Subscribe as u8], id].concat().to_vec()
-}
+#[async_trait]
+impl WriteProtocol for OwnedWriteHalf {
+    async fn write_size(&mut self, size: usize) {
+        println!("Size is: {}", size);
+        let size = size.encode_as_varint();
+        println!("Encoded size is: {:?}", size);
+        self.write(size.as_slice()).await.unwrap();
+    }
 
-pub fn generate_id(dst: &mut [u8]) -> &mut [u8] {
-    let random = thread_rng().gen::<i128>();
-    let ns = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos() as i128;
+    async fn write_command(&mut self, command: Command) {
+        self.write(&[command as u8]).await.unwrap();
+    }
 
-    (ns + random as i128).encode_var(dst);
-    println!("Timestamp {}, Random {}\nGenerated ID {}\n{:?}", ns, random, (ns + random as i128), dst);
+    async fn write_ack(&mut self, id: Vec<u8>) {
+        self.write_command(Command::Ack);
+        self.write(&id).await.unwrap();
+    }
 
-    dst
+    async fn write_nack(&mut self, id: Vec<u8>) {
+        self.write_command(Command::Nack);
+        self.write(&id).await.unwrap();
+    }
+
+    async fn write_id(&mut self, id: &[u8]) {
+        self.write(id).await.unwrap();
+    }
 }

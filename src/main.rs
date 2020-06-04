@@ -3,6 +3,9 @@ mod selection;
 mod server;
 mod codec;
 mod protocol;
+mod connection;
+mod client;
+mod router;
 
 
 use std::thread;

@@ -31,11 +31,10 @@ impl Connection {
 
         loop {
             match Eater::read(connection.clone()).await {
-                Ok(ConnectionStatus::Keep) => {break;},
-                Ok(ConnectionStatus::End) => {},
+                Ok(ConnectionStatus::Keep) => {},
+                Ok(ConnectionStatus::End) => {break;},
                 Err(_) => {}
             }
-            println!("End of message");
         }
     }
 }

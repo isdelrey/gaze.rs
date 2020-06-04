@@ -16,7 +16,7 @@ impl Eater {
         let mut reader = connection.client.reader.lock().await;
 
         match reader.read_command().await {
-            Command::Publish => {
+            Ok(Command::Publish) => {
                 println!("Command: Publish");
                 let id: Vec<u8> = reader.read_id().await;
                 let size = reader.read_size().await;
@@ -27,11 +27,8 @@ impl Eater {
 
                 println!("Message (id: {}, size: {}): {:?}", std::str::from_utf8(&id).unwrap(), size, message);
                 
-                println!("Spawning );
                 tokio::spawn(Eater::acknowledge(Ok(()), id, connection.client.writer.clone()));
-                println!("End of reading");
 
-                ();
             },
             _ => {
                 return Ok(ConnectionStatus::End);

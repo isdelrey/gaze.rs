@@ -22,7 +22,7 @@ spec:
           imagePullPolicy: IfNotPresent
           name: server-sha256-1
       nodeSelector:
-        node: client
+        node: server
 
 ---
 apiVersion: v1

@@ -24,3 +24,5 @@ spec:
           env:
             - name: IP
               value: 10.0.18.214
+      nodeSelector:
+        node: client

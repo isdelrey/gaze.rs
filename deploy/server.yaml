@@ -21,6 +21,9 @@ spec:
         - image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server
           imagePullPolicy: IfNotPresent
           name: server-sha256-1
+      nodeSelector:
+        node: client
+
 ---
 apiVersion: v1
 kind: Service

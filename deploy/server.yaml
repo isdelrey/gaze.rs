@@ -18,9 +18,13 @@ spec:
         app: server
     spec:
       containers:
-        - image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server
-          imagePullPolicy: IfNotPresent
+        - image: gcr.io/tfg-ivo/github.com/ivosequeros/gaze-server:latest
+          imagePullPolicy: Always
           name: server-sha256-1
+          ports:
+            - containerPort: 6142
+              protocol: TCP
+
       nodeSelector:
         node: server
 

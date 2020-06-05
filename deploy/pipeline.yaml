@@ -50,15 +50,6 @@ steps:
     id: Save configs for server
     entrypoint: sh
 
-  - name: gcr.io/cloud-builders/gke-deploy
-    args:
-      - apply
-      - "--filename=output/server/expanded"
-      - "--cluster=benchmarking-cluster-4"
-      - "--location=europe-west3-b"
-      - "--namespace=default"
-    id: Apply deploy for server
-
   - name: gcr.io/cloud-builders/gsutil
     args:
       - "-c"
@@ -67,6 +58,15 @@ steps:
         gsutil cp -r output/client/expanded gs://tfg-ivo_cloudbuild/deploy/config/client/$BUILD_ID/expanded
     id: Save configs for client
     entrypoint: sh
+
+  - name: gcr.io/cloud-builders/gke-deploy
+    args:
+      - apply
+      - "--filename=output/server/expanded"
+      - "--cluster=benchmarking-cluster-4"
+      - "--location=europe-west3-b"
+      - "--namespace=default"
+    id: Apply deploy for server
 
   - name: gcr.io/cloud-builders/gke-deploy
     args:
@@ -83,4 +83,4 @@ images:
 tags:
   - gcp-cloud-build-deploy
   - server
-timeout: 30m
+timeout: 40m

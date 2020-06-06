@@ -10,7 +10,7 @@ use crate::client::Client;
 use uuid::Builder;
 
 pub async fn create<'c>() {
-    let addr = "127.0.0.1:6142";
+    let addr = "0.0.0.0:6142";
     let mut listener = TcpListener::bind(addr).await.unwrap();
 
     let router: Arc<Mutex<Router>> = Arc::new(Mutex::new(Router::new()));

@@ -27,19 +27,3 @@ spec:
 
       nodeSelector:
         node: server
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: server-service
-spec:
-  clusterIP: 10.0.18.214
-  selector:
-    app: server
-  type: ClusterIP
-  ports:
-    - name: tcp
-      port: 6142
-      targetPort: 6142
-      protocol: TCP

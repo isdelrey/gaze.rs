@@ -27,8 +27,6 @@ impl ReadProtocol for OwnedReadHalf {
         /* Read message id: */
         self.read_exact(&mut id).await.unwrap();
         
-        println!("{:?}", &id);
-        
         id
     }
 

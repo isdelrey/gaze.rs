@@ -17,7 +17,6 @@ impl Eater {
 
         match reader.read_command().await {
             Ok(Command::Publish) => {
-                println!("Command: Publish");
                 let id: Vec<u8> = reader.read_id().await;
                 let size = reader.read_size().await;
                 let mut message: Vec<u8> = Vec::with_capacity(size);
@@ -25,7 +24,6 @@ impl Eater {
 
                 reader.read_exact(&mut message).await.unwrap();
 
-                println!("Message (id: {}, size: {}): {:?}", std::str::from_utf8(&id).unwrap(), size, message);
                 
                 tokio::spawn(Eater::acknowledge(Ok(()), id, connection.client.writer.clone()));
 

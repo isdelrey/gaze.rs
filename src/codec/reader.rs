@@ -1,57 +1,56 @@
-use tokio::io::{AsyncReadExt};
-use failure::Error;
-use std::collections::HashMap;
+// use tokio::io::{AsyncReadExt};
+// use failure::Error;
+// use std::collections::HashMap;
 
-#[derive(Debug, PartialEq)]
-pub enum Type<'a> {
-    Literal(usize),
-    Record(HashMap<&'a str, Type<'a>>)
-}
+// #[derive(Debug, PartialEq)]
+// pub enum Model<'a> {
+//     Literal(Type),
+//     Record(HashMap<&'a str, Type>)
+// }
 
-pub enum Model {
-    Null,
-    Boolean,
-    Int,
-    Long,
-    Float,
-    Double,
-    Bytes,
-    String,
-    Record
-}
+// pub enum Type {
+//     Null,
+//     Boolean,
+//     Int,
+//     Long,
+//     Float,
+//     Double,
+//     Bytes,
+//     String
+// }
 
 
-/* We want to give the following function a record encoded with a schema
-and we want it to return a map with the position of the fields */
-pub fn read<'a, R: AsyncReadExt>(model: &Model, reader: R, offset: usize) -> Result<Type<'a>, Error> {
-    match *model {
-        Model::Null => {
-            Ok(Type::Literal(offset))
-        },
-        Model::Boolean => {
-            Ok(Type::Literal(offset))
-        },
-        Model::Int => {
-            Ok(Type::Literal(offset))
-        },
-        Model::Long => {
-            Ok(Type::Literal(offset))
-        },
-        Model::Float => {
-            Ok(Type::Literal(offset))
-        },
-        Model::Double => {
-            Ok(Type::Literal(offset))
-        },
-        Model::Bytes => {
-            Ok(Type::Literal(offset))
-        },
-        Model::String => {
-            Ok(Type::Literal(offset))
-        },
-        _ => Ok(Type::Literal(offset))
-    }
-}
+// /* We want to give the following function a record encoded with a schema
+// and we want it to return a map with the position of the fields */
+// pub fn read<'a, R: AsyncReadExt>(model: &Model, reader: R, offset: usize) -> Result<Type<'a>, Error> {
+//     match *model {
+//         Model::Literal(Type::Null) => {
+//             Ok(Type::Literal(offset))
+//         },
+//         Model::Literal(Type::Boolean) => {
+//             Ok(Type::Literal(offset))
+//         },
+//         Model::Literal(Type::Int) => {
+//             Ok(Type::Literal(offset))
+//         },
+//         Model::Literal(Type::Long) => {
+//             Ok(Type::Literal(offset))
+//         },
+//         Model::Literal(Type::Float) => {
+//             Ok(Type::Literal(offset))
+//         },
+//         Model::Literal(Type::Double) => {
+//             Ok(Type::Literal(offset))
+//         },
+//         Model::Literal(Type::Bytes) => {
+//             Ok(Type::Literal(offset))
+//         },
+//         Model::Literal(Type::String) => {
+//             Ok(Type::Literal(offset))
+//         },
+//         _ => Ok(Type::Literal(offset))
+//     }
+// }
 /*
 #[cfg(test)]
 mod tests {

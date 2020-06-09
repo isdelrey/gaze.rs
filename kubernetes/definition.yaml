@@ -24,6 +24,8 @@ spec:
           ports:
             - containerPort: 6142
               protocol: TCP
-
+          resources:
+            requests:
+              cpu: 1m
       nodeSelector:
         node: server

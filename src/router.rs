@@ -2,25 +2,27 @@ use tokio::io::{AsyncWriteExt};
 use crate::client::{Client};
 use std::sync::{Arc, Weak, RwLock};
 use std::collections::HashMap;
-
+use crate::selection::Subscriptions;
 
 pub struct Router {
-    clients: RwLock<HashMap<String, Weak<Client>>>
+    pub clients: RwLock<HashMap<Vec<u8>, Weak<Client>>>,
+    pub subscriptions: Subscriptions
 }
 
 impl Router {
     pub fn new() -> Router {
         Router {
-            clients: RwLock::new(HashMap::new())
+            clients: RwLock::new(HashMap::new()),
+            subscriptions: HashMap::new()
         }
     }
 
-    pub fn add_client(&self, id: String, client: Arc<Client>) {
+    pub fn add_client(&self, id: Vec<u8>, client: Arc<Client>) {
         let mut clients = self.clients.write().unwrap();
         clients.insert(id, Arc::downgrade(&client));
     }
 
-    pub fn remove_client(&self, id: &str) {
+    pub fn remove_client(&self, id: &Vec<u8>) {
         let mut clients = self.clients.write().unwrap();
         clients.remove(id);
     }
@@ -35,7 +37,7 @@ impl Router {
                     writer.write(&content).await.unwrap();
                 },
                 None => {
-                    self.remove_client(id);
+                    self.remove_client(&id);
                     continue;
                 }
             };

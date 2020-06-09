@@ -33,7 +33,7 @@ impl Connection {
             match Eater::read(connection.clone()).await {
                 Ok(ConnectionStatus::Keep) => {},
                 Ok(ConnectionStatus::End) => {break;},
-                Err(_) => {}
+                Err(_) => {break;}
             }
         }
     }

@@ -7,6 +7,7 @@ use std::iter;
 use tokio::io::AsyncWriteExt;
 use rand::distributions::Alphanumeric;
 use crate::protocol::command::Command;
+use rand::RngCore;
 
 #[async_trait]
 pub trait WriteProtocol {
@@ -43,21 +44,18 @@ impl WriteProtocol for OwnedWriteHalf {
     }
 
     async fn write_id(&mut self) -> Vec<u8> {
-        let random: String;
+        let mut timestamp = (SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64).to_le_bytes();
+
         {
             let mut rng = thread_rng();
-            random = iter::repeat(())
-            .map(|()| rng.sample(Alphanumeric) )
-            .take(4).collect();
+            rng.fill_bytes(&mut timestamp[2..4]);
         }
 
-        let mut ns = [0u8; 6];
-        let ns = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().to_smallest_readable_string(&mut ns);
+        let id = &timestamp[2..8];
 
         self.write_command(Command::Publish).await;
-        self.write(ns).await.unwrap();
-        self.write(random.as_bytes()).await.unwrap();
-
-        [ns, random.as_bytes()].concat()
+        self.write(id).await.unwrap();
+        
+        Vec::from(id)
     }
 }

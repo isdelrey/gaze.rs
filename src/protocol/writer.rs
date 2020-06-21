@@ -44,12 +44,18 @@ impl WriteProtocol for OwnedWriteHalf {
     }
 
     async fn write_id(&mut self) -> Vec<u8> {
-        let mut timestamp = (SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64).to_le_bytes();
+        let mut timestamp_as_u64 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        let mut timestamp = timestamp_as_u64.to_le_bytes();
+        let mut trailing_zeros = timestamp_as_u64.trailing_zeros();
 
         {
             let mut rng = thread_rng();
-            rng.fill_bytes(&mut timestamp[2..4]);
+            rng.fill_bytes(&mut timestamp[1..4]);
         }
+
+        let last_byte_random = timestamp[1];
+        let last_byte_mask = 0b1111_1100;
+        timestamp[2] = last_byte_random | last_byte_mask;
 
         let id = &timestamp[2..8];
 

@@ -6,6 +6,7 @@ mod protocol;
 mod connection;
 mod client;
 mod router;
+mod storage;
 
 
 use std::thread;
@@ -16,7 +17,7 @@ pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 async fn main() {
     tokio::spawn(server::create());
     
-    println!("Server started");
+    println!("Gaze started");
     thread::park();
 
     ()

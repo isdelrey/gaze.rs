@@ -3,17 +3,20 @@ use crate::client::{Client};
 use std::sync::{Arc, Weak, RwLock};
 use std::collections::HashMap;
 use crate::selection::Subscriptions;
+use crate::storage::Store;
 
 pub struct Router {
     pub clients: RwLock<HashMap<Vec<u8>, Weak<Client>>>,
-    pub subscriptions: Subscriptions
+    pub subscriptions: Subscriptions,
+    pub store: Store
 }
 
 impl Router {
     pub fn new() -> Router {
         Router {
             clients: RwLock::new(HashMap::new()),
-            subscriptions: HashMap::new()
+            subscriptions: HashMap::new(),
+            store: Store::new()
         }
     }
 

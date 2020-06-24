@@ -39,12 +39,6 @@ pub async fn create<'c>() {
 
     let router: Arc<Mutex<Router>> = Arc::new(Mutex::new(Router::new()));
 
-    loop {
-        let mut router = router.lock().await;
-        let filler = vec![8u8; 30];
-        router.store.append(&filler).unwrap();
-    }
-
     println!("Ready on localhost:6142");
     let mut incoming: Incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {

@@ -1,11 +1,8 @@
 use async_trait::async_trait;
 use std::time::SystemTime;
-use crate::protocol::time::SmallestReadableString;
 use tokio::net::tcp::{OwnedWriteHalf};
-use rand::{Rng, thread_rng};
-use std::iter;
+use rand::{thread_rng};
 use tokio::io::AsyncWriteExt;
-use rand::distributions::Alphanumeric;
 use crate::protocol::command::Command;
 use rand::RngCore;
 
@@ -44,9 +41,8 @@ impl WriteProtocol for OwnedWriteHalf {
     }
 
     async fn write_id(&mut self) -> Vec<u8> {
-        let mut timestamp_as_u64 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        let timestamp_as_u64 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
         let mut timestamp = timestamp_as_u64.to_le_bytes();
-        let mut trailing_zeros = timestamp_as_u64.trailing_zeros();
 
         {
             let mut rng = thread_rng();

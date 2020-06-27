@@ -45,7 +45,7 @@ impl Client {
         let filter = Filter::parse(original_filter).unwrap();
 
         /* Create subscription: */
-        let subscription = Subscription::new(reading_from_store, filter);
+        let subscription = Subscription::new(client.clone(), reading_from_store, filter);
 
         let mut self_subscriptions = client.subscriptions.write().await;
         self_subscriptions.push(subscription);

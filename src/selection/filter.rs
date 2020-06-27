@@ -8,18 +8,27 @@ pub enum Constraint {
     EndsWith(Vec<u8>),
 }
 
-pub type FieldConstraint = (String, Constraint);
-pub type TypeConstraints = (String, Vec<FieldConstraint>);
+pub type FieldConstraint = (usize, Constraint);
+pub type TypeConstraints = (Vec<u8>, Vec<FieldConstraint>);
 pub type Filter = Vec<TypeConstraints>;
 
+pub type ChecksRequiredPerType = HashMap<Vec<u8>, usize>;
+
 pub trait FilterBuilder {
+    fn build_checks_per_type(self);
     fn parse_constraint(input: serde_json::Value) -> Result<Constraint, ()>;
     fn parse(input: serde_json::Value) -> Result<Filter, ()>;
-    fn integrate(self, selector: &mut Selector);
-    fn remove(self, selector: Selector);
 }
 
 impl FilterBuilder for Filter {
+    fn build_checks_per_type(self) {
+        let checks = ChecksRequiredPerType::new();
+        for (message_type, constraints) in self {
+            checks.insert(message_type, constraints.len());
+        }
+
+        checks
+    }
     fn parse_constraint(input: serde_json::Value) -> Result<Constraint, ()> {
         match input {
             serde_json::Value::Object(object_values) => {
@@ -82,6 +91,4 @@ impl FilterBuilder for Filter {
 
         Ok(filter)
     }
-    fn integrate(self, selector: &mut Selector) {}
-    fn remove(self, selector: &mut Selector) {}
 }

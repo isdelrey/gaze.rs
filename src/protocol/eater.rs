@@ -5,7 +5,7 @@ use crate::errors::ConnectionError;
 use crate::protocol::command::Command;
 use crate::protocol::reader::ReadProtocol;
 use crate::protocol::writer::WriteProtocol;
-use crate::selection::filter::FilterBuilder;
+use crate::selection::selector::{Selection, Selector};
 use futures::lock::Mutex;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
@@ -20,13 +20,64 @@ impl Eater {
 
         match reader.read_command().await {
             Ok(Command::Message) => {
-                let id: Vec<u8> = reader.read_id().await;
+                /* Get message ID: */
+                let mut id = [0u8; 8];
+                reader.read_exact(&mut id).await.unwrap();
+
+                /* Get message type: */
+                let mut message_type = [0u8; 4];
+                reader.read_exact(&mut message_type).await.unwrap();
+
+                /* Get length: */
                 let size = reader.read_size().await;
+
+                /* Get message: */
                 let (message, size) = reader.read_message().await;
+
+                /* Access registry: */
+                let mut registry = *connection.router.registry.read().await;
+
+                /* Get schema: */
+                let schema = match registry.get(&message_type) {
+                    Some(schema) => schema,
+                    None => {
+                        let mut writer = connection.client.writer.lock().await;
+                        /* Write command */
+                        writer.write_command(Command::SchemaNeeded).await;
+
+                        /* Write message type: */
+                        writer
+                            .write(&message_type[..])
+                            .await
+                            .expect("Cannot write message type");
+                        /* Write command */
+                        writer.write_command(Command::MessageNack).await;
+
+                        /* Write message id: */
+                        writer
+                            .write(&id[..])
+                            .await
+                            .expect("Cannot write message id");
+
+                        return Ok(ConnectionStatus::Keep);
+                    }
+                };
+
+                /* Apply selector: */
+                let selector = connection.router.selector.read().await;
+                selector
+                    .select(connection.router, &message_type[..], schema, &message)
+                    .await;
+
+                /* Write to storage: */
+                {
+                    let store = connection.router.store.write().await;
+                    store.append(message);
+                }
 
                 tokio::spawn(Eater::acknowledge(
                     Ok(()),
-                    id,
+                    id.to_vec(),
                     connection.client.writer.clone(),
                 ));
             }
@@ -42,11 +93,14 @@ impl Eater {
                 /* Get length: */
                 let size = reader.read_size().await;
 
-                /* Get message type: */
+                /* Get schema: */
                 let mut schema = vec![0u8; size as usize];
                 reader.read_exact(&mut schema).await.unwrap();
+
+                /* Access registry: */
                 let mut registry = connection.router.registry.write().await;
 
+                /* Decode and store schema: */
                 let raw_schema = String::from_utf8(schema).expect("Found invalid UTF-8");
                 registry.add(message_type.to_vec(), raw_schema);
             }
@@ -57,11 +111,23 @@ impl Eater {
 
                 let registry = connection.router.registry.read().await;
 
-                let raw_schema = registry
-                    .get_raw(message_type.to_vec())
-                    .expect("Requested model that is not in registry");
-
                 let mut writer = connection.client.writer.lock().await;
+
+                let raw_schema = match registry.get_raw(message_type.to_vec()) {
+                    Ok(raw_schema) => raw_schema,
+                    Err(_) => {
+                        /* Write command */
+                        writer.write_command(Command::NoSchema).await;
+
+                        /* Write message type: */
+                        writer
+                            .write(&message_type[..])
+                            .await
+                            .expect("Cannot write message type");
+
+                        return Ok(ConnectionStatus::Keep);
+                    }
+                };
 
                 /* Write command */
                 writer.write_command(Command::Schema).await;
@@ -116,7 +182,7 @@ impl Eater {
                 /* Integrate subscription: */
                 {
                     let mut selector = connection.router.selector.write().await;
-                    subscription.filter.integrate(&mut selector)
+                    subscription.integrate(&mut selector)
                 }
             }
             _ => {

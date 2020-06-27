@@ -31,7 +31,18 @@ impl Router {
 
     pub async fn remove_client(&self, id: &Vec<u8>) {
         let mut clients = self.clients.write().await;
-        clients.remove(id);
+        let client = clients
+            .remove(id)
+            .unwrap()
+            .upgrade()
+            .expect("Client disconnection cannot not be dealt with");
+
+        /* Disgregate client subcription filters from selector: */
+        let subscriptions = client.subscriptions.read().await;
+        let selector = self.selector.write().await;
+        for subscription in *subscriptions {
+            subscription.disgregate(&mut selector);
+        }
     }
 
     pub async fn broadcast(&self, content: &[u8]) {

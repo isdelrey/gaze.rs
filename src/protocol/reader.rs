@@ -23,7 +23,7 @@ impl ReadProtocol for OwnedReadHalf {
     }
 
     async fn read_id(&mut self) -> Vec<u8> {
-        let mut id: Vec<u8> = [0u8; 6].to_vec();
+        let mut id: Vec<u8> = [0u8; 8].to_vec();
         /* Read message id: */
         self.read_exact(&mut id).await.unwrap();
         id

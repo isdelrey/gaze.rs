@@ -1,47 +1,41 @@
-use async_trait::async_trait;
-use std::time::SystemTime;
-use tokio::net::tcp::{OwnedWriteHalf};
-use rand::{thread_rng};
-use tokio::io::AsyncWriteExt;
 use crate::protocol::command::Command;
+use async_trait::async_trait;
+use rand::thread_rng;
 use rand::RngCore;
+use std::time::SystemTime;
+use tokio::io::AsyncWriteExt;
+use tokio::net::tcp::OwnedWriteHalf;
 
 #[async_trait]
 pub trait WriteProtocol {
     async fn write_command(&mut self, command: Command);
 
-    async fn publish(&mut self, content: &[u8]) -> Vec<u8>;
-    async fn write_ack(&mut self, id: &[u8]);
-    async fn write_nack(&mut self, id: &[u8]);
+    async fn write_message_ack(&mut self, id: &[u8]);
+    async fn write_message_nack(&mut self, id: &[u8]);
     async fn write_id(&mut self) -> Vec<u8>;
 }
 
 #[async_trait]
 impl WriteProtocol for OwnedWriteHalf {
-    async fn publish(&mut self, content: &[u8]) -> Vec<u8> {
-        self.write_command(Command::Publish).await;
-        let id = self.write_id().await;
-        self.write(content).await.unwrap();
-
-        id
-    }
-
     async fn write_command(&mut self, command: Command) {
         self.write(&[command as u8]).await.unwrap();
     }
 
-    async fn write_ack(&mut self, id: &[u8]) {
-        self.write_command(Command::Ack).await;
+    async fn write_message_ack(&mut self, id: &[u8]) {
+        self.write_command(Command::MessageAck).await;
         self.write(id).await.unwrap();
     }
 
-    async fn write_nack(&mut self, id: &[u8]) {
-        self.write_command(Command::Nack).await;
+    async fn write_message_nack(&mut self, id: &[u8]) {
+        self.write_command(Command::MessageNack).await;
         self.write(id).await.unwrap();
     }
 
     async fn write_id(&mut self) -> Vec<u8> {
-        let timestamp_as_u64 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64;
+        let timestamp_as_u64 = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
         let mut timestamp = timestamp_as_u64.to_le_bytes();
 
         {
@@ -55,9 +49,7 @@ impl WriteProtocol for OwnedWriteHalf {
 
         let id = &timestamp[2..8];
 
-        self.write_command(Command::Publish).await;
         self.write(id).await.unwrap();
-        
         Vec::from(id)
     }
 }

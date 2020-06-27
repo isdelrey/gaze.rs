@@ -44,21 +44,4 @@ impl Router {
             subscription.disgregate(&mut selector);
         }
     }
-
-    pub async fn broadcast(&self, content: &[u8]) {
-        let clients = self.clients.read().await;
-        for (id, client) in clients.iter() {
-            let client = client.upgrade();
-            match client {
-                Some(client) => {
-                    let mut writer = client.writer.lock().await;
-                    writer.write(&content).await;
-                }
-                None => {
-                    self.remove_client(&id);
-                    continue;
-                }
-            };
-        }
-    }
 }

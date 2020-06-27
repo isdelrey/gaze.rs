@@ -39,8 +39,8 @@ impl Router {
 
         /* Disgregate client subcription filters from selector: */
         let subscriptions = client.subscriptions.read().await;
-        let selector = self.selector.write().await;
-        for subscription in *subscriptions {
+        let mut selector = self.selector.write().await;
+        for subscription in subscriptions.iter() {
             subscription.disgregate(&mut selector);
         }
     }

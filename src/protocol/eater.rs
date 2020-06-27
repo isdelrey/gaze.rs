@@ -35,7 +35,7 @@ impl Eater {
                 let (message, size) = reader.read_message().await;
 
                 /* Access registry: */
-                let mut registry = *connection.router.registry.read().await;
+                let registry = connection.router.registry.read().await;
 
                 /* Get schema: */
                 let schema = match registry.get(&message_type) {
@@ -66,12 +66,17 @@ impl Eater {
                 /* Apply selector: */
                 let selector = connection.router.selector.read().await;
                 selector
-                    .select(connection.router, &message_type[..], schema, &message)
+                    .select(
+                        connection.router.clone(),
+                        &message_type[..],
+                        schema,
+                        &message,
+                    )
                     .await;
 
                 /* Write to storage: */
                 {
-                    let store = connection.router.store.write().await;
+                    let mut store = connection.router.store.write().await;
                     store.append(message);
                 }
 

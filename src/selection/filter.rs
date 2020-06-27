@@ -1,4 +1,5 @@
 use super::selector::Selector;
+use std::collections::HashMap;
 
 pub enum Constraint {
     Equal(Vec<u8>),
@@ -15,16 +16,16 @@ pub type Filter = Vec<TypeConstraints>;
 pub type ChecksRequiredPerType = HashMap<Vec<u8>, usize>;
 
 pub trait FilterBuilder {
-    fn build_checks_per_type(self);
+    fn build_checks_per_type(&self) -> ChecksRequiredPerType;
     fn parse_constraint(input: serde_json::Value) -> Result<Constraint, ()>;
     fn parse(input: serde_json::Value) -> Result<Filter, ()>;
 }
 
 impl FilterBuilder for Filter {
-    fn build_checks_per_type(self) {
-        let checks = ChecksRequiredPerType::new();
+    fn build_checks_per_type(&self) -> ChecksRequiredPerType {
+        let mut checks = ChecksRequiredPerType::new();
         for (message_type, constraints) in self {
-            checks.insert(message_type, constraints.len());
+            checks.insert(message_type.clone(), constraints.len());
         }
 
         checks
@@ -35,9 +36,15 @@ impl FilterBuilder for Filter {
                 if object_values.len() > 1 {
                     return Err(());
                 }
-                let Some((operator, value)) = object_values.iter().next();
+                let (operator, value) = object_values
+                    .iter()
+                    .next()
+                    .expect("No non-equality constraint found but one expected");
 
-                let Constraint::Equal(parsed_value) = Self::parse_constraint(*value).unwrap();
+                let parsed_value = match Self::parse_constraint(value.clone()).unwrap() {
+                    Constraint::Equal(parsed_value) => parsed_value,
+                    _ => return Err(()),
+                };
                 match &operator[..] {
                     "$lt" => Ok(Constraint::LowerThan(parsed_value)),
                     "$gt" => Ok(Constraint::GreaterThan(parsed_value)),
@@ -69,7 +76,7 @@ impl FilterBuilder for Filter {
         /* Build filter: */
         for raw_type_constraints in raw_contraints_per_type {
             let (message_type, fields) = match raw_type_constraints {
-                serde_json::Value::Object(values) => {
+                serde_json::Value::Object(mut values) => {
                     let message_type = match values.remove("$type") {
                         Some(message_type) => message_type,
                         None => return Err(()),
@@ -84,7 +91,7 @@ impl FilterBuilder for Filter {
             let type_constraints = (
                 message_type,
                 fields.iter().map(|(field_name, value)| {
-                    (field_name, Self::parse_constraint(*value).unwrap())
+                    (field_name, Self::parse_constraint(value.clone()).unwrap())
                 }),
             );
         }

@@ -1,6 +1,5 @@
 use super::filter::{Constraint, Filter};
 use crate::client::Client;
-use crate::codec::{Model::*, Type};
 use crate::router::Router;
 use crate::selection::subscription::Subscription;
 use async_trait::async_trait;
@@ -39,7 +38,7 @@ pub trait Selection {
     ) -> Vec<Arc<Subscription>>;
     async fn relay(router: Arc<Router>, recipients: Vec<Arc<Subscription>>, message: &[u8]);
     async fn select(
-        self,
+        &self,
         router: Arc<Router>,
         message_type: &[u8],
         schema: &Schema,
@@ -54,14 +53,17 @@ impl Selection for Selector {
         message_type: &[u8],
         checks: ChecksPerMessage,
     ) -> Vec<Arc<Subscription>> {
-        let recipients: Vec<Arc<Subscription>> = Vec::new();
+        let mut recipients: Vec<Arc<Subscription>> = Vec::new();
 
         for (subscription_id, checks_passed) in checks {
             let subscription = subscriptions
                 .get(&subscription_id)
                 .expect("Cannot find subscription with subscription id");
-            let expected_passed_checks = subscription.checks_per_type.get(message_type);
-            if expected_passed_checks == checks_passed {
+            let expected_passed_checks = subscription
+                .checks_per_type
+                .get(message_type)
+                .expect("Cannot get checks per type");
+            if *expected_passed_checks == checks_passed {
                 recipients.push(subscription.clone());
             }
         }
@@ -71,14 +73,14 @@ impl Selection for Selector {
 
     async fn relay(router: Arc<Router>, recipients: Vec<Arc<Subscription>>, message: &[u8]) {
         for recipient in recipients {
-            let writer = recipient.client.writer.lock().await;
+            let mut writer = recipient.client.writer.lock().await;
 
             writer.write(message).await;
         }
     }
 
     async fn select(
-        self,
+        &self,
         router: Arc<Router>,
         message_type: &[u8],
         schema: &Schema,

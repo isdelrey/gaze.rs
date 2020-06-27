@@ -15,13 +15,14 @@ pub struct Subscription {
 
 impl Subscription {
     pub fn new(client: Arc<Client>, reading_from_store: bool, filter: Filter) -> Subscription {
+        let checks_per_type = filter.build_checks_per_type();
         Subscription {
             reading_from_store,
             filter,
-            checks_per_type: filter.build_checks_per_type(),
+            checks_per_type,
             client,
         }
     }
-    pub fn integrate(self, selector: &mut Selector) {}
-    pub fn disgregate(self, selector: &mut Selector) {}
+    pub fn integrate(&self, selector: &mut Selector) {}
+    pub fn disgregate(&self, selector: &mut Selector) {}
 }

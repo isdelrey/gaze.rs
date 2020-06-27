@@ -16,7 +16,7 @@ pub struct Client {
     pub reader: Arc<Mutex<OwnedReadHalf>>,
     pub writer: Arc<Mutex<OwnedWriteHalf>>,
     pub address: String,
-    pub subscriptions: Arc<RwLock<Vec<Subscription>>>,
+    pub subscriptions: Arc<RwLock<Vec<Arc<Subscription>>>>,
 }
 
 impl Client {
@@ -41,14 +41,18 @@ impl Client {
         client: Arc<Client>,
         reading_from_store: bool,
         original_filter: serde_json::Value,
-    ) -> Result<Subscription, ()> {
+    ) -> Result<Arc<Subscription>, ()> {
         let filter = Filter::parse(original_filter).unwrap();
 
         /* Create subscription: */
-        let subscription = Subscription::new(client.clone(), reading_from_store, filter);
+        let subscription = Arc::new(Subscription::new(
+            client.clone(),
+            reading_from_store,
+            filter,
+        ));
 
         let mut self_subscriptions = client.subscriptions.write().await;
-        self_subscriptions.push(subscription);
+        self_subscriptions.push(subscription.clone());
 
         Ok(subscription)
     }

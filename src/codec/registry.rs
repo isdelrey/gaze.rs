@@ -11,7 +11,7 @@ impl Registry {
             schemas: HashMap::new(),
         }
     }
-    pub fn get(&mut self, message_type: &[u8]) -> Option<&Schema> {
+    pub fn get(&self, message_type: &[u8]) -> Option<&Schema> {
         match self.schemas.get(message_type) {
             Some((schema, _)) => Some(schema),
             None => None,

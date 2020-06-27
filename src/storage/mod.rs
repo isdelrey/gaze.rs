@@ -61,7 +61,7 @@ impl Store {
 
         let slice: &mut [u8] =
             &mut self.inner[self.insert_position..self.insert_position + message.len()];
-        slice.copy_from_slice(message);
+        slice.copy_from_slice(&message);
 
         self.insert_position = self.insert_position + message.len();
         Ok(self.insert_position)

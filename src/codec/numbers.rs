@@ -33,7 +33,8 @@ pub trait VarIntEncoder {
 }
 
 pub trait VarIntDecoder {
-    fn read_varint(&self) -> Result<u64, ()>;
+    fn read_varint_length(&self) -> Result<usize, ()>;
+    fn read_varint(&self, length: usize) -> Result<u64, ()>;
     fn read_varint_size(&self) -> Result<(usize, usize), ()>;
 }
 
@@ -72,18 +73,27 @@ impl VarIntEncoder for usize {
 }
 
 impl VarIntDecoder for &[u8] {
-    fn read_varint(&self) -> Result<u64, ()> {
-        let mut result: u64 = 0;
+    fn read_varint_length(&self) -> Result<usize, ()> {
         let mut shift = 0;
+        let mut i = 0;
 
-        for i in 0..self.len() {
-            let msb_dropped = self[i] & DROP_MSB;
-            result |= (msb_dropped as u64) << shift;
-            shift += 7;
-
+        while i < self.len() {
             if self[i] & MSB == 0 {
                 break;
             }
+        }
+
+        Ok(i)
+    }
+    fn read_varint(&self, length: usize) -> Result<u64, ()> {
+        let mut result: u64 = 0;
+        let mut shift = 0;
+        let mut i = 0;
+
+        for i in 0..length {
+            let msb_dropped = self[i] & DROP_MSB;
+            result |= (msb_dropped as u64) << shift;
+            shift += 7;
         }
 
         Ok(result)

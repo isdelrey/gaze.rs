@@ -66,7 +66,7 @@ impl Eater {
                 /* Apply selector: */
                 let selector = connection.router.selector.read().await;
                 selector
-                    .select(
+                    .distribute(
                         connection.router.clone(),
                         &message_type[..],
                         &schema,

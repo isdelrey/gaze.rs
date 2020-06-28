@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use tokio::net::tcp::{OwnedReadHalf};
-use tokio::io::AsyncReadExt;
 use std::io::Read;
+use tokio::io::AsyncReadExt;
+use tokio::net::tcp::OwnedReadHalf;
 
 const MSB: u8 = 0b1000_0000;
 const DROP_MSB: u8 = 0b0111_1111;
@@ -32,9 +32,9 @@ pub trait VarIntEncoder {
     fn encode_as_varint(self) -> Vec<u8>;
 }
 
-#[async_trait]
 pub trait VarIntDecoder {
-    async fn read_varint(&mut self) -> usize;
+    fn read_varint(&self) -> Result<u64, ()>;
+    fn read_varint_size(&self) -> Result<(usize, usize), ()>;
 }
 
 impl VarIntEncoder for usize {
@@ -67,29 +67,43 @@ impl VarIntEncoder for usize {
         }
 
         dst.push(n as u8);
-        
         dst
     }
 }
 
-#[async_trait]
-impl VarIntDecoder for OwnedReadHalf {
-    async fn read_varint(&mut self) -> usize {
-        let mut buf = [0u8; 1];
-        let mut result: usize = 0;
+impl VarIntDecoder for &[u8] {
+    fn read_varint(&self) -> Result<u64, ()> {
+        let mut result: u64 = 0;
         let mut shift = 0;
 
-        loop {
-            self.read_exact(&mut buf).await.unwrap();
-            let msb_dropped = buf[0] & DROP_MSB;
-            result |= (msb_dropped as usize) << shift;
+        for i in 0..self.len() {
+            let msb_dropped = self[i] & DROP_MSB;
+            result |= (msb_dropped as u64) << shift;
             shift += 7;
 
-            if buf[0] & MSB == 0 {
+            if self[i] & MSB == 0 {
                 break;
             }
         }
 
-        result
+        Ok(result)
+    }
+    fn read_varint_size(&self) -> Result<(usize, usize), ()> {
+        let mut result: usize = 0;
+        let mut shift = 0;
+        let mut i = 0;
+
+        while i < self.len() {
+            i = i + 1;
+            let msb_dropped = self[i] & DROP_MSB;
+            result |= (msb_dropped as usize) << shift;
+            shift += 7;
+
+            if self[i] & MSB == 0 {
+                break;
+            }
+        }
+
+        Ok((result, i))
     }
 }

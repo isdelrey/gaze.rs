@@ -39,6 +39,7 @@ impl Client {
     }
     pub async fn add_subscription(
         client: Arc<Client>,
+        id: Vec<u8>,
         reading_from_store: bool,
         original_filter: serde_json::Value,
     ) -> Result<Arc<Subscription>, ()> {
@@ -46,6 +47,7 @@ impl Client {
 
         /* Create subscription: */
         let subscription = Arc::new(Subscription::new(
+            id,
             client.clone(),
             reading_from_store,
             filter,

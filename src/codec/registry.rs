@@ -1,5 +1,6 @@
 use avro_rs::Schema;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub struct Registry {
     schemas: HashMap<Vec<u8>, (Schema, String)>,

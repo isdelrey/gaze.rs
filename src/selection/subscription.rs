@@ -7,16 +7,23 @@ use std::sync::Arc;
 pub type Subscriptions = HashMap<String, HashMap<usize, HashMap<Vec<u8>, Vec<Vec<u8>>>>>;
 
 pub struct Subscription {
-    reading_from_store: bool,
+    pub id: Vec<u8>,
+    pub reading_from_store: bool,
     pub filter: Filter,
     pub checks_per_type: ChecksRequiredPerType,
     pub client: Arc<Client>,
 }
 
 impl Subscription {
-    pub fn new(client: Arc<Client>, reading_from_store: bool, filter: Filter) -> Subscription {
+    pub fn new(
+        id: Vec<u8>,
+        client: Arc<Client>,
+        reading_from_store: bool,
+        filter: Filter,
+    ) -> Subscription {
         let checks_per_type = filter.build_checks_per_type();
         Subscription {
+            id,
             reading_from_store,
             filter,
             checks_per_type,

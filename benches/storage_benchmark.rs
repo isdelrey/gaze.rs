@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate criterion;
 
-use criterion::Criterion;
 use criterion::BenchmarkId;
+use criterion::Criterion;
 use criterion::Throughput;
-use std::iter::Iterator;
 use gaze::storage::Store;
+use std::iter::Iterator;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut store = Store::new();
@@ -15,7 +15,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         let filler = vec![8u8; size];
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_with_input(BenchmarkId::new("Write", size), &size, |b, &size| {
-           b.iter(|| store.append(&filler));
+            b.iter(|| store.append(&filler));
         });
     }
     group.finish();

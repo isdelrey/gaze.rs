@@ -69,7 +69,7 @@ impl Eater {
                     .select(
                         connection.router.clone(),
                         &message_type[..],
-                        schema,
+                        &schema,
                         &message,
                     )
                     .await;
@@ -179,10 +179,14 @@ impl Eater {
                 let reading_from_store = store.offset < offset;
 
                 /* Add subscription: */
-                let subscription =
-                    Client::add_subscription(connection.client.clone(), reading_from_store, filter)
-                        .await
-                        .expect("Cannot add subscription");
+                let subscription = Client::add_subscription(
+                    connection.client.clone(),
+                    subscription_id.to_vec(),
+                    reading_from_store,
+                    filter,
+                )
+                .await
+                .expect("Cannot add subscription");
 
                 /* Integrate subscription: */
                 {

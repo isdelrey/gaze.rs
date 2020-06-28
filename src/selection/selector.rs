@@ -1,16 +1,17 @@
 use super::filter::{Constraint, Filter};
 use crate::client::Client;
+use crate::codec::numbers::*;
 use crate::router::Router;
 use crate::selection::subscription::Subscription;
 use async_trait::async_trait;
-use avro_rs::{types, Schema};
+use avro_rs::Schema;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 
-type SelectorSubscription = Arc<Subscription>;
+pub type SelectorSubscription = Arc<Subscription>;
 
-enum FieldNonEqualityCheck {
+pub enum FieldNonEqualityCheck {
     GreaterThan(Vec<u8>),
     LowerThan(Vec<u8>),
     StartsWith(Vec<u8>),
@@ -18,10 +19,10 @@ enum FieldNonEqualityCheck {
 }
 
 /* FOR ALL MESSAGES: */
-type FieldNonEqualityChecks = HashMap<Vec<u8>, SelectorSubscription>;
-type FieldEqualityCheck = HashMap<Vec<u8>, SelectorSubscription>;
-type SubscriptionsByField = HashMap<usize, (FieldEqualityCheck, FieldNonEqualityChecks)>;
-type SubscriptionsByType = HashMap<Vec<u8>, SubscriptionsByField>;
+pub type FieldNonEqualityChecks = Vec<(FieldNonEqualityCheck, SelectorSubscription)>;
+pub type FieldEqualityCheck = HashMap<Vec<u8>, SelectorSubscription>;
+pub type SubscriptionsByField = HashMap<usize, (FieldEqualityCheck, FieldNonEqualityChecks)>;
+pub type SubscriptionsByType = HashMap<Vec<u8>, SubscriptionsByField>;
 pub type Selector = SubscriptionsByType;
 
 /* FOR EACH MESSAGE: */
@@ -87,34 +88,41 @@ impl Selection for Selector {
         message: &[u8],
     ) {
         /* Check message type in selector for possible subscribers: */
+        let subscriptions_by_field = match self.get(message_type) {
+            Some(value) => value,
+            None => return,
+        };
 
-        let checks = HashMap::new();
-        let subscriptions = HashMap::new();
+        let mut checks = HashMap::new();
+        let mut subscriptions: Subscriptions = HashMap::new();
         let mut position: usize = 0;
         let mut start: usize = 0;
 
-        // match *schema {
-        //     types::Value:: => {
-        //         let number_size = message[start..];
+        match schema {
+            Schema::String | Schema::Bytes => {
+                position = position + 1;
+                let (size, bytes_read) =
+                    message.read_varint_size().expect("Cannot read string size");
+                start = start + bytes_read;
 
-        //         match router.subscriptions.get(position) {
-        //             Ok(subscriptions) => {
-        //                 match subscriptions.get(message[start..start + number_size]) {
-        //                     Ok(subscriptions) => {
-        //                         let client_ids = subscription(message);
-        //                         tokio::spawn(relay(client_ids, message));
-        //                     }
-        //                     _ => {}
-        //                 }
-        //             }
-        //             _ => {}
-        //         }
+                let (equality_field_check, non_equality_field_checks) =
+                    match subscriptions_by_field.get(&position) {
+                        Some(value) => value,
+                        None => return,
+                    };
 
-        //         start = start + number_size;
-        //     }
-        //     Literal(Type::String) => {}
-        //     Record(record) => {}
-        // }
+                let end = start + size;
+                match equality_field_check.get(&message[start..end]) {
+                    Some(subscription) => {
+                        subscriptions.insert(subscription.id.to_vec(), subscription.clone());
+                        let checks_counter = checks.entry(subscription.id.to_vec()).or_insert(0);
+                        *checks_counter += 1;
+                    }
+                    None => {}
+                };
+            }
+            _ => {}
+        }
 
         /* Get recipients that fulfill all checks: */
         let recipients = Self::get_recipients(subscriptions, message_type, checks);

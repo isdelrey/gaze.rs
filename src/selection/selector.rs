@@ -1,5 +1,3 @@
-use super::filter::{Constraint, Filter};
-use crate::client::Client;
 use crate::codec::numbers::*;
 use crate::router::Router;
 use crate::selection::subscription::Subscription;
@@ -13,7 +11,9 @@ const ROOT_FIELD_PATH: &str = "";
 const FIELD_SEPARATOR: &str = ".";
 
 pub type SelectorSubscription = Arc<Subscription>;
+pub type SelectorSubscriptions = Vec<SelectorSubscription>;
 
+#[derive(std::cmp::PartialEq, std::fmt::Debug)]
 pub enum FieldNonEqualityCheck {
     GreaterThan(Vec<u8>),
     LowerThan(Vec<u8>),
@@ -22,8 +22,8 @@ pub enum FieldNonEqualityCheck {
 }
 
 /* FOR ALL MESSAGES: */
-pub type FieldNonEqualityChecks = Vec<(FieldNonEqualityCheck, SelectorSubscription)>;
-pub type FieldEqualityCheck = HashMap<Vec<u8>, SelectorSubscription>;
+pub type FieldNonEqualityChecks = Vec<(FieldNonEqualityCheck, SelectorSubscriptions)>;
+pub type FieldEqualityCheck = HashMap<Vec<u8>, SelectorSubscriptions>;
 pub type SubscriptionsByField = HashMap<String, (FieldEqualityCheck, FieldNonEqualityChecks)>;
 pub type SubscriptionsByType = HashMap<Vec<u8>, SubscriptionsByField>;
 pub type Selector = SubscriptionsByType;
@@ -35,16 +35,35 @@ type Subscriptions = HashMap<Vec<u8>, Arc<Subscription>>;
 type Checker = (ChecksPerMessage, Subscriptions);
 
 pub trait CheckerOperations {
-    fn pass(&mut self, subscription: SelectorSubscription);
+    fn pass(&mut self, subscriptions: SelectorSubscriptions);
 }
 
 impl CheckerOperations for Checker {
-    fn pass(&mut self, subscription: SelectorSubscription) {
-        let checks_counter = self.0.entry(subscription.id.to_vec()).or_insert(0);
-        self.1.insert(subscription.id.to_vec(), subscription);
-        *checks_counter += 1;
+    fn pass(&mut self, subscriptions: SelectorSubscriptions) {
+        for subscription in subscriptions {
+            let checks_counter = self.0.entry(subscription.id.to_vec()).or_insert(0);
+            self.1.insert(subscription.id.to_vec(), subscription);
+            *checks_counter += 1;
+        }
     }
 }
+
+pub trait ConditionalInsertion {
+    fn insert_or_add_to_existing(&mut self, check: FieldNonEqualityCheck, subscription: SelectorSubscription);
+}
+
+impl ConditionalInsertion for FieldNonEqualityChecks {
+     fn insert_or_add_to_existing(&mut self, check: FieldNonEqualityCheck, subscription: SelectorSubscription) {
+        if let Some((_, ref mut checks)) = &mut self.iter_mut().find(|(n, _)| *n == check) {
+            checks.push(subscription);
+        }
+        else {
+            self.push((check, vec![subscription]));
+        }
+    }
+}
+
+
 
 #[async_trait]
 pub trait Selection {
@@ -60,7 +79,6 @@ pub trait Selection {
     );
     async fn distribute(
         &self,
-        router: Arc<Router>,
         message_type: &[u8],
         schema: &Schema,
         message: &[u8],
@@ -99,7 +117,6 @@ impl Selection for Selector {
 
     async fn distribute(
         &self,
-        router: Arc<Router>,
         message_type: &[u8],
         schema: &Schema,
         message: &[u8],
@@ -120,9 +137,15 @@ impl Selection for Selector {
             ROOT_FIELD_PATH,
             message,
         );
+        
+        println!("Selection for {:?} done", message_type);
 
         /* Get recipients that fulfill all checks: */
         let recipients = Self::get_recipients(checker, message_type);
+
+        for recipient in recipients.clone() {
+            println!("Recipient is {:?}", recipient.id);
+        }
 
         /* Relay message: */
         Self::relay(recipients, message).await;

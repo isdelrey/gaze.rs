@@ -46,12 +46,12 @@ impl Client {
         let filter = Filter::parse(original_filter).unwrap();
 
         /* Create subscription: */
-        let subscription = Arc::new(Subscription::new(
+        let subscription = Subscription::new(
             id,
             client.clone(),
             reading_from_store,
-            filter,
-        ));
+            filter
+        );
 
         let mut self_subscriptions = client.subscriptions.write().await;
         self_subscriptions.push(subscription.clone());

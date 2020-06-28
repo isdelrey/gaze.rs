@@ -1,7 +1,7 @@
-use super::selector::Selector;
 use std::collections::HashMap;
 use fasthash::xx;
 
+#[derive(std::fmt::Debug)]
 pub enum Constraint {
     Equal(Vec<u8>),
     GreaterThan(Vec<u8>),
@@ -18,7 +18,7 @@ pub type ChecksRequiredPerType = HashMap<Vec<u8>, usize>;
 
 pub trait FilterBuilder {
     fn build_checks_per_type(&self) -> ChecksRequiredPerType;
-    fn parse_constraint(input: serde_json::Value) -> Result<Constraint, ()>;
+    fn parse_constraint(input: serde_json::Value) -> Result<Constraint, &'static str>;
     fn hash_message_type(message_type: String) -> Vec<u8>;
     fn parse(input: serde_json::Value) -> Result<Filter, ()>;
 }
@@ -32,11 +32,11 @@ impl FilterBuilder for Filter {
 
         checks
     }
-    fn parse_constraint(input: serde_json::Value) -> Result<Constraint, ()> {
+    fn parse_constraint(input: serde_json::Value) -> Result<Constraint, &'static str> {
         match input {
             serde_json::Value::Object(object_values) => {
                 if object_values.len() > 1 {
-                    return Err(());
+                    return Err("Filter contains more than 1 operator");
                 }
                 let (operator, value) = object_values
                     .iter()
@@ -45,12 +45,12 @@ impl FilterBuilder for Filter {
 
                 let parsed_value = match Self::parse_constraint(value.clone()).unwrap() {
                     Constraint::Equal(parsed_value) => parsed_value,
-                    _ => return Err(()),
+                    _ => return Err("Filter contains an operator that cannot be parsed"),
                 };
                 match &operator[..] {
                     "$lt" => Ok(Constraint::LowerThan(parsed_value)),
                     "$gt" => Ok(Constraint::GreaterThan(parsed_value)),
-                    _ => return Err(()),
+                    _ => return Err("Filter operator not known"),
                 }
             }
             serde_json::Value::Number(number) if number.is_u64() => {
@@ -65,7 +65,11 @@ impl FilterBuilder for Filter {
                 let value = number.as_f64().unwrap().to_le_bytes().to_vec();
                 Ok(Constraint::Equal(value))
             }
-            _ => return Err(()),
+            serde_json::Value::String(string) => {
+                let value = string.as_bytes().to_vec();
+                Ok(Constraint::Equal(value))
+            }
+            v => return Err("Filter contains field not allowed"),
         }
     }
     fn hash_message_type(message_type: String) -> Vec<u8> {
@@ -108,6 +112,8 @@ impl FilterBuilder for Filter {
 
             filter.push(type_constraints);
         }
+
+        println!("Filter build: {:?}", filter);
 
         Ok(filter)
     }

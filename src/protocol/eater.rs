@@ -18,21 +18,23 @@ impl Eater {
     pub async fn read(connection: Arc<Connection>) -> Result<ConnectionStatus, ConnectionError> {
         let mut reader = connection.client.reader.lock().await;
 
-        match reader.read_command().await {
+        let command = reader.read_command().await;
+
+        match command {
             Ok(Command::Message) => {
                 /* Get message ID: */
-                let mut id = [0u8; 8];
+                let mut id = [0u8; 6];
                 reader.read_exact(&mut id).await.unwrap();
+                println!("Message id: {:?}", id);
 
                 /* Get message type: */
                 let mut message_type = [0u8; 4];
                 reader.read_exact(&mut message_type).await.unwrap();
-
-                /* Get length: */
-                let size = reader.read_size().await;
+                println!("Message type: {:?}", message_type);
 
                 /* Get message: */
                 let (message, size) = reader.read_message().await;
+                println!("Message: {:?}", message);
 
                 /* Access registry: */
                 let registry = connection.router.registry.read().await;
@@ -42,6 +44,7 @@ impl Eater {
                     Some(schema) => schema,
                     None => {
                         let mut writer = connection.client.writer.lock().await;
+                        
                         /* Write command */
                         writer.write_command(Command::SchemaNeeded).await;
 
@@ -67,7 +70,6 @@ impl Eater {
                 let selector = connection.router.selector.read().await;
                 selector
                     .distribute(
-                        connection.router.clone(),
                         &message_type[..],
                         &schema,
                         &message,
@@ -77,7 +79,7 @@ impl Eater {
                 /* Write to storage: */
                 {
                     let mut store = connection.router.store.write().await;
-                    store.append(message);
+                    store.append(message).expect("Cannot write to storage");
                 }
 
                 tokio::spawn(Eater::acknowledge(
@@ -87,20 +89,18 @@ impl Eater {
                 ));
             }
             Ok(Command::Schema) => {
-                /* Get message ID: */
-                let mut id = [0u8; 8];
-                reader.read_exact(&mut id).await.unwrap();
-
                 /* Get message type: */
                 let mut message_type = [0u8; 4];
                 reader.read_exact(&mut message_type).await.unwrap();
 
                 /* Get length: */
                 let size = reader.read_size().await;
+                println!("Schema size is {}", size);
 
                 /* Get schema: */
                 let mut schema = vec![0u8; size as usize];
                 reader.read_exact(&mut schema).await.unwrap();
+                println!("Schema is {:?}", schema);
 
                 /* Access registry: */
                 let mut registry = connection.router.registry.write().await;
@@ -158,25 +158,32 @@ impl Eater {
             Ok(Command::Subscription) => {
                 /* Get offset: */
                 let mut raw_offset = [0u8; 8];
-                reader.read_exact(&mut raw_offset).await.unwrap();
+                reader.read_exact(&mut raw_offset[2..8]).await.unwrap();
                 let offset = u64::from_le_bytes(raw_offset);
+                println!("Offset: {:?} -> {}", raw_offset, offset);
 
                 /* Get subscription ID: */
                 let mut subscription_id = [0u8; 4];
                 reader.read_exact(&mut subscription_id).await.unwrap();
+                println!("Subscription id: {:?}", subscription_id);
 
                 /* Get filter length: */
                 let size = reader.read_size().await;
+                println!("Filter size: {}", size);
 
                 /* Get filter: */
                 let mut raw_filter = vec![0u8; size as usize];
                 reader.read_exact(&mut raw_filter).await.unwrap();
+
+
                 let filter: serde_json::Value = serde_json::from_str(
                     std::str::from_utf8(&raw_filter).expect("Cannot decode filter"),
-                )
-                .expect("Cannot parse filter");
+                ).expect("Cannot deserialise filter");
+                println!("Filter: {:?} -> {:?}", raw_filter, filter);
+
                 let store = connection.router.store.read().await;
                 let reading_from_store = store.offset < offset;
+                println!("Reading from store: {} < {}? {}", store.offset , offset, reading_from_store);
 
                 /* Add subscription: */
                 let subscription = Client::add_subscription(
@@ -187,17 +194,22 @@ impl Eater {
                 )
                 .await
                 .expect("Cannot add subscription");
+                println!("Built subscription");
 
                 /* Integrate subscription: */
                 {
                     let mut selector = connection.router.selector.write().await;
-                    subscription.integrate(&mut selector)
+                    subscription.integrate(&mut selector);
+                    println!("Integrated subscription");
                 }
-            }
+            },
             _ => {
+                println!("End connection");
                 return Ok(ConnectionStatus::End);
             }
         }
+
+        println!("Keep connection");
         Ok(ConnectionStatus::Keep)
     }
     pub async fn acknowledge(

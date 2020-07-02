@@ -144,13 +144,19 @@ impl Selection for Selector {
         schema: &Schema,
         message: &[u8],
     ) {
+        println!("Distribution started");
         let mut checker = (HashMap::new(), HashMap::new());
 
         /* Check message type in selector for possible subscribers: */
         let subscriptions_by_field = match self.get(message_type) {
             Some(value) => value,
-            None => return,
+            None => {
+                println!("No subscriptions for message type {:?}, message types: {:?}", message_type, self.keys());
+                return
+            },
         };
+
+        println!("Subscriptions for message type {:?} found, message types: {:?}", message_type, self.keys());
 
         let start = std::time::Instant::now();
         /* Select: */

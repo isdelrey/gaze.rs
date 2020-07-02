@@ -82,7 +82,7 @@ impl Store {
         for (&key, (message_type, message)) in self.btree.range(offset..) {
             println!("Store item: {} -> {:?} {:?}", key, message_type, message);
             let schema = registry.get(&message_type[..]).unwrap();
-            selector.distribute(message_type, schema, message);
+            selector.distribute(message_type, schema, message).await;
         }
         
         /* The past selector dies here, along with the subscription integration in it */

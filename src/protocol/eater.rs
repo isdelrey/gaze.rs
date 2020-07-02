@@ -5,7 +5,7 @@ use crate::errors::ConnectionError;
 use crate::protocol::command::Command;
 use crate::protocol::reader::ReadProtocol;
 use crate::protocol::writer::WriteProtocol;
-use crate::selection::selector::{Selection, Selector};
+use crate::selection::selector::{Selection};
 use futures::lock::Mutex;
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
@@ -75,11 +75,15 @@ impl Eater {
                         &message,
                     )
                     .await;
+                println!("Distribution completed");
 
                 /* Write to storage: */
                 {
+
+                    println!("Writing to storage");
                     let mut store = connection.router.store.write().await;
-                    store.append(message).expect("Cannot write to storage");
+                    store.append(id, message_type, message).expect("Cannot write to storage");
+                    println!("Wrote to storage");
                 }
 
                 tokio::spawn(Eater::acknowledge(
@@ -182,19 +186,23 @@ impl Eater {
                 println!("Filter: {:?} -> {:?}", raw_filter, filter);
 
                 let store = connection.router.store.read().await;
-                let reading_from_store = store.offset < offset;
-                println!("Reading from store: {} < {}? {}", store.offset , offset, reading_from_store);
+                let reading_from_store = store.current > offset;
 
                 /* Add subscription: */
                 let subscription = Client::add_subscription(
                     connection.client.clone(),
                     subscription_id.to_vec(),
-                    reading_from_store,
                     filter,
                 )
                 .await
                 .expect("Cannot add subscription");
                 println!("Built subscription");
+
+                /* Attach to store until all contents read: */
+                {
+                    let store = connection.router.store.read().await;
+                    store.pipe(offset, subscription.clone(), connection.router.clone()).await;
+                }
 
                 /* Integrate subscription: */
                 {

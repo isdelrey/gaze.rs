@@ -12,12 +12,14 @@ pub trait WriteProtocol {
 
     async fn write_message_ack(&mut self, id: &[u8]);
     async fn write_message_nack(&mut self, id: &[u8]);
+    async fn write_size(&mut self, size: usize);
     async fn write_id(&mut self) -> Vec<u8>;
 }
 
 #[async_trait]
 impl WriteProtocol for OwnedWriteHalf {
     async fn write_command(&mut self, command: Command) {
+        println!("Writing {:?}", command);
         self.write(&[command as u8]).await.unwrap();
     }
 
@@ -30,6 +32,11 @@ impl WriteProtocol for OwnedWriteHalf {
         self.write_command(Command::MessageNack).await;
         self.write(id).await.unwrap();
     }
+
+    async fn write_size(&mut self, size: usize) {
+        self.write(&(size as u32).to_le_bytes()).await.unwrap();
+    }
+
 
     async fn write_id(&mut self) -> Vec<u8> {
         let timestamp_as_u64 = SystemTime::now()

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::codec::numbers::*;
 use fasthash::xx;
 
 #[derive(std::fmt::Debug)]
@@ -50,16 +51,20 @@ impl FilterBuilder for Filter {
                 match &operator[..] {
                     "$lt" => Ok(Constraint::LowerThan(parsed_value)),
                     "$gt" => Ok(Constraint::GreaterThan(parsed_value)),
+                    "$sw" => Ok(Constraint::StartsWith(parsed_value)),
+                    "$ew" => Ok(Constraint::EndsWith(parsed_value)),
                     _ => return Err("Filter operator not known"),
                 }
             }
             serde_json::Value::Number(number) if number.is_u64() => {
-                let value = number.as_u64().unwrap().to_le_bytes().to_vec();
-                Ok(Constraint::Equal(value))
+                let value = number.as_u64().unwrap();
+                let encoded_value = (value as i64).zigzag().encode_as_varint();
+                Ok(Constraint::Equal(encoded_value))
             }
             serde_json::Value::Number(number) if number.is_i64() => {
-                let value = number.as_i64().unwrap().to_le_bytes().to_vec();
-                Ok(Constraint::Equal(value))
+                let value = number.as_i64().unwrap();
+                let encoded_value = value.zigzag().encode_as_varint();
+                Ok(Constraint::Equal(encoded_value))
             }
             serde_json::Value::Number(number) if number.is_f64() => {
                 let value = number.as_f64().unwrap().to_le_bytes().to_vec();

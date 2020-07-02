@@ -1,5 +1,5 @@
 use super::filter::{ChecksRequiredPerType, Filter, FilterBuilder};
-use super::selector::{Selector, FieldNonEqualityCheck, ConditionalInsertion};
+use super::selector::{Selector, FIELD_SEPARATOR, FieldNonEqualityCheck, ConditionalInsertion};
 use super::filter::Constraint;
 use crate::client::Client;
 use std::collections::HashMap;
@@ -7,29 +7,24 @@ use std::sync::Arc;
 
 pub struct Subscription {
     pub id: Vec<u8>,
-    pub reading_from_store: bool,
     pub filter: Filter,
     pub checks_per_type: ChecksRequiredPerType,
-    pub client: Arc<Client>,
-    myself: Option<Arc<Self>>
+    pub client: Arc<Client>
 }
 
 impl Subscription {
     pub fn new(
         id: Vec<u8>,
         client: Arc<Client>,
-        reading_from_store: bool,
         filter: Filter
     ) -> Arc<Subscription> {
         let checks_per_type = filter.build_checks_per_type();
 
-        let mut myself = Subscription {
+        let myself = Subscription {
             id,
-            reading_from_store,
             filter,
             checks_per_type,
-            client,
-            myself: None
+            client
         };
 
         Arc::new(myself)
@@ -38,7 +33,8 @@ impl Subscription {
         for (message_type, type_constraints) in self.filter.iter() {
             let subscriptions_by_field = selector.entry(message_type.clone()).or_insert(HashMap::new());
             for (field, field_constraint) in type_constraints {
-                let (equality_check, non_equality_checks) = subscriptions_by_field.entry(field.clone()).or_insert((HashMap::new(), Vec::new()));
+                let field_with_leading_dot = [FIELD_SEPARATOR, &field].concat();
+                let (equality_check, non_equality_checks) = subscriptions_by_field.entry(field_with_leading_dot).or_insert((HashMap::new(), Vec::new()));
 
                 match field_constraint {
                         Constraint::Equal(value) => {

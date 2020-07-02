@@ -6,36 +6,46 @@ use tokio::net::tcp::OwnedReadHalf;
 const MSB: u8 = 0b1000_0000;
 const DROP_MSB: u8 = 0b0111_1111;
 
-pub trait ZigZagIntoUnsigned: Sized + Copy {
-    fn zigzag(self) -> usize;
+pub trait ZigZagIntoUnsigned<R>: Sized + Copy {
+    fn zigzag(self) -> R;
 }
 
-pub trait ZigZagIntoSigned: Sized + Copy {
-    fn zigzag(self) -> isize;
+pub trait ZigZagIntoSigned<R>: Sized + Copy {
+    fn zigzag(self) -> R;
 }
 
-impl ZigZagIntoUnsigned for isize {
+impl ZigZagIntoUnsigned<usize> for isize {
     fn zigzag(self) -> usize {
         ((self << 1) ^ (self >> 63)) as usize
     }
 }
 
-impl ZigZagIntoSigned for usize {
+impl ZigZagIntoUnsigned<u64> for i64 {
+    fn zigzag(self) -> u64 {
+        ((self << 1) ^ (self >> 63)) as u64
+    }
+}
+
+impl ZigZagIntoSigned<isize> for usize {
     fn zigzag(self) -> isize {
         ((self >> 1) ^ (-((self & 1) as isize)) as usize) as isize
+    }
+}
+impl ZigZagIntoSigned<i64> for u64 {
+    fn zigzag(self) -> i64 {
+        ((self >> 1) ^ (-((self & 1) as i64)) as u64) as i64
     }
 }
 
 pub trait VarIntEncoder {
     fn varint_size(self) -> usize;
-    fn create_varint_vec(self) -> Vec<u8>;
     fn encode_as_varint(self) -> Vec<u8>;
 }
 
 pub trait VarIntDecoder {
-    fn read_varint_length(&self) -> Result<usize, ()>;
-    fn read_varint(&self, length: usize) -> Result<u64, ()>;
-    fn read_varint_size(&self) -> Result<(usize, usize), ()>;
+    fn get_varint_size(&self) -> Result<usize, ()>;
+    fn read_varint_with_size(&self, length: usize) -> Result<u64, ()>;
+    fn read_varint(&self) -> Result<(usize, usize), ()>;
 }
 
 impl VarIntEncoder for usize {
@@ -51,13 +61,39 @@ impl VarIntEncoder for usize {
         }
         size
     }
-    fn create_varint_vec(self) -> Vec<u8> {
-        let size = self.varint_size();
-        Vec::with_capacity(size)
+
+    fn encode_as_varint(self) -> Vec<u8> {
+        let mut dst = Vec::new();
+        let mut n = self;
+        let mut i = 0;
+
+        while n >= 0x80 {
+            dst.push(MSB | (n as u8));
+            i += 1;
+            n >>= 7;
+        }
+
+        dst.push(n as u8);
+        dst
+    }
+}
+
+impl VarIntEncoder for u64 {
+    fn varint_size(mut self) -> usize {
+        if self == 0 {
+            return 1;
+        }
+
+        let mut size = 0;
+        while self > 0 {
+            size += 1;
+            self >>= 7;
+        }
+        size
     }
 
     fn encode_as_varint(self) -> Vec<u8> {
-        let mut dst = self.create_varint_vec();
+        let mut dst = Vec::new();
         let mut n = self;
         let mut i = 0;
 
@@ -73,22 +109,22 @@ impl VarIntEncoder for usize {
 }
 
 impl VarIntDecoder for &[u8] {
-    fn read_varint_length(&self) -> Result<usize, ()> {
-        let mut shift = 0;
+    fn get_varint_size(&self) -> Result<usize, ()> {
         let mut i = 0;
 
         while i < self.len() {
             if self[i] & MSB == 0 {
                 break;
             }
+
+            i = i + 1;
         }
 
-        Ok(i)
+        Ok(i + 1)
     }
-    fn read_varint(&self, length: usize) -> Result<u64, ()> {
+    fn read_varint_with_size(&self, length: usize) -> Result<u64, ()> {
         let mut result: u64 = 0;
         let mut shift = 0;
-        let mut i = 0;
 
         for i in 0..length {
             let msb_dropped = self[i] & DROP_MSB;
@@ -96,15 +132,15 @@ impl VarIntDecoder for &[u8] {
             shift += 7;
         }
 
-        Ok(result)
+        Ok(result.zigzag() as u64)
     }
-    fn read_varint_size(&self) -> Result<(usize, usize), ()> {
+    fn read_varint(&self) -> Result<(usize, usize), ()> {
         let mut result: usize = 0;
         let mut shift = 0;
         let mut i = 0;
 
         while i < self.len() {
-            i = i + 1;
+            println!("v8: {:?}", self[i]);
             let msb_dropped = self[i] & DROP_MSB;
             result |= (msb_dropped as usize) << shift;
             shift += 7;
@@ -112,8 +148,10 @@ impl VarIntDecoder for &[u8] {
             if self[i] & MSB == 0 {
                 break;
             }
+
+            i = i + 1;
         }
 
-        Ok((result, i))
+        Ok((result.zigzag() as usize, i + 1))
     }
 }

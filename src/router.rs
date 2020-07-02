@@ -10,7 +10,7 @@ pub struct Router {
     pub clients: RwLock<HashMap<Vec<u8>, Weak<Client>>>,
     pub selector: RwLock<Selector>,
     pub registry: RwLock<Registry>,
-    pub store: RwLock<Store>,
+    pub store: Arc<RwLock<Store>>,
 }
 
 impl Router {
@@ -18,7 +18,7 @@ impl Router {
         Router {
             clients: RwLock::new(HashMap::new()),
             selector: RwLock::new(Selector::new()),
-            store: RwLock::new(Store::new()),
+            store: Store::new(),
             registry: RwLock::new(Registry::new()),
         }
     }

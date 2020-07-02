@@ -1,14 +1,15 @@
 use crate::codec::numbers::*;
-use crate::router::Router;
 use crate::selection::subscription::Subscription;
+use crate::protocol::command::Command;
+use crate::protocol::writer::*;
 use async_trait::async_trait;
 use avro_rs::{schema, Schema};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 
-const ROOT_FIELD_PATH: &str = "";
-const FIELD_SEPARATOR: &str = ".";
+pub const ROOT_FIELD_PATH: &str = "";
+pub const FIELD_SEPARATOR: &str = ".";
 
 pub type SelectorSubscription = Arc<Subscription>;
 pub type SelectorSubscriptions = Vec<SelectorSubscription>;
@@ -40,6 +41,8 @@ pub trait CheckerOperations {
 
 impl CheckerOperations for Checker {
     fn pass(&mut self, subscriptions: SelectorSubscriptions) {
+        let subscriptions_ids: Vec<Vec<u8>> = subscriptions.iter().map(|v| v.id.clone()).collect();
+        println!("Passed checks for {:?}", subscriptions_ids);
         for subscription in subscriptions {
             let checks_counter = self.0.entry(subscription.id.to_vec()).or_insert(0);
             self.1.insert(subscription.id.to_vec(), subscription);
@@ -68,7 +71,7 @@ impl ConditionalInsertion for FieldNonEqualityChecks {
 #[async_trait]
 pub trait Selection {
     fn get_recipients(checker: Checker, message_type: &[u8]) -> Vec<Arc<Subscription>>;
-    async fn relay(recipients: Vec<Arc<Subscription>>, message: &[u8]);
+    async fn relay(recipients: Vec<Arc<Subscription>>, message_type: &[u8], message: &[u8]);
     fn select(
         &self,
         checker: &mut Checker,
@@ -76,7 +79,7 @@ pub trait Selection {
         schema: &Schema,
         field_name: &str,
         message: &[u8],
-    );
+    ) -> usize;
     async fn distribute(
         &self,
         message_type: &[u8],
@@ -107,11 +110,31 @@ impl Selection for Selector {
         recipients
     }
 
-    async fn relay(recipients: Vec<Arc<Subscription>>, message: &[u8]) {
+    async fn relay(recipients: Vec<Arc<Subscription>>, message_type: &[u8], message: &[u8]) {
         for recipient in recipients {
             let mut writer = recipient.client.writer.lock().await;
 
-            writer.write(message).await.expect("Cannot relay message");
+            /* Write command: */
+            writer.write_command(Command::SubscriptionMessage).await;
+
+            /* Write message id: */
+            let id = writer.write_id().await;
+            println!("Message id: {:?}", id);
+
+            /* Write message type: */
+            writer.write(&message_type).await.expect("Cannot write message type");
+            println!("Message type: {:?}", &message_type);
+
+            /* Write subscription id: */
+            writer.write(&recipient.id).await.expect("Cannot write subscription id");
+            println!("Subscriber id: {:?}", &recipient.id);
+
+            /* Write message: */
+            writer.write_size(message.len()).await;
+            println!("Message size: {}", message.len());
+            
+            /* Write message: */
+            writer.write(message).await.expect("Cannot write message");
         }
     }
 
@@ -129,6 +152,7 @@ impl Selection for Selector {
             None => return,
         };
 
+        let start = std::time::Instant::now();
         /* Select: */
         self.select(
             &mut checker,
@@ -138,7 +162,7 @@ impl Selection for Selector {
             message,
         );
         
-        println!("Selection for {:?} done", message_type);
+        println!("Selection for {:?} performed in {}µs", message_type, start.elapsed().as_micros());
 
         /* Get recipients that fulfill all checks: */
         let recipients = Self::get_recipients(checker, message_type);
@@ -148,7 +172,7 @@ impl Selection for Selector {
         }
 
         /* Relay message: */
-        Self::relay(recipients, message).await;
+        Self::relay(recipients, &message_type, message).await;
     }
 
     fn select(
@@ -158,22 +182,37 @@ impl Selection for Selector {
         schema: &Schema,
         field_name: &str,
         message: &[u8],
-    ) {
+    ) -> usize {
         let mut start = 0;
         match schema {
             Schema::String | Schema::Bytes => {
-                let (size, field_length) =
-                    message.read_varint_size().expect("Cannot read string size");
-                start = start + field_length;
+                println!("Field is {}", field_name);
+                println!("Message: {:?}", message);
+                println!("Selecting from field of type string or bytes");
+                let (size, size_length) =
+                    message.read_varint().expect("Cannot read string size");
+                println!("Start is {}, size {} and size size {}", start, size, size_length);
+                start = start + size_length;
 
+                let subscription_fields: Vec<String> = subscriptions_by_field.iter().map(|(k, _)| k.clone()).collect();
+                println!("Subscriptions by field {:?}", subscription_fields);
+                
+                let end = start + size;
                 let (equality_field_check, non_equality_field_checks) =
                     match subscriptions_by_field.get(field_name) {
                         Some(value) => value,
-                        None => return,
+                        None => {
+                            println!("No subscriptions for this field");
+                            return end
+                        },
                     };
 
-                let end = start + size;
+                println!("End is {}", end);
                 let field = &message[start..end];
+
+
+                println!("Field value is {:?} -> {}", field, std::str::from_utf8(field.clone()).unwrap());
+
                 match equality_field_check.get(field) {
                     Some(subscription) => {
                         checker.pass(subscription.clone());
@@ -196,20 +235,31 @@ impl Selection for Selector {
                         _ => {}
                     }
                 }
+
+                end
             }
             Schema::Int => {
-                let field_length = message
-                    .read_varint_length()
-                    .expect("Cannot read string size");
+                println!("Field is {}", field_name);
+                println!("Message: {:?}", message);
+                println!("Selecting from field of type int");
 
+                let field_length = message
+                    .get_varint_size()
+                    .expect("Cannot read string size");
+                println!("Field length is {}", field_length);
+
+                let end = start + field_length;
                 let (equality_field_check, non_equality_field_checks) =
                     match subscriptions_by_field.get(field_name) {
                         Some(value) => value,
-                        None => return,
+                        None => {
+                            println!("No subscriptions for this field");
+                            return end
+                        },
                     };
 
-                let end = start + field_length;
                 let field = &message[start..end];
+                println!("Field value is {:?}", field);
                 match equality_field_check.get(field) {
                     Some(subscription) => {
                         checker.pass(subscription.clone());
@@ -220,18 +270,36 @@ impl Selection for Selector {
                 for (non_equality_type, subscription) in non_equality_field_checks {
                     match non_equality_type {
                         FieldNonEqualityCheck::GreaterThan(value) => {
-                            if &value[..] == &field[0..value.len()] {
-                                checker.pass(subscription.clone());
+                            let value_is_negative = (value[0] & 0b0000_0001) != 0;
+                            let field_is_negative = (field[0] & 0b0000_0001) != 0;
+
+                            if (value_is_negative && field_is_negative) || (!value_is_negative && !field_is_negative) {
+                                if value.len() > field.len() { continue }
+                                if value.len() == field.len() { if value[value.len() - 1] > field[field.len() - 1] { continue } }
+                                if value[value.len() - 1] == field[field.len() - 1] { continue }
                             }
+                            else if field_is_negative { continue }
+
+                            checker.pass(subscription.clone());
                         }
                         FieldNonEqualityCheck::LowerThan(value) => {
-                            if &value[..] == &field[field.len() - value.len()..field.len()] {
-                                checker.pass(subscription.clone());
+                            let value_is_negative = (value[0] & 0b0000_0001) != 0;
+                            let field_is_negative = (field[0] & 0b0000_0001) != 0;
+
+                            if (value_is_negative && field_is_negative) || (!value_is_negative && !field_is_negative) {
+                                if value.len() < field.len() { continue }
+                                if value.len() == field.len() { if value[value.len() - 1] < field[field.len() - 1] { continue } }
+                                if value[value.len() - 1] == field[field.len() - 1] { continue }
                             }
+                            else if value_is_negative { continue }
+
+                            checker.pass(subscription.clone());
                         }
                         _ => {}
                     }
                 }
+
+                end
             }
             Schema::Record {
                 ref fields,
@@ -239,7 +307,9 @@ impl Selection for Selector {
                 ..
             } => {
                 let map_name = &name.name[..];
+                println!("Record: {}", map_name);
 
+                let mut start = start;
                 for schema::RecordField {
                     ref name,
                     ref schema,
@@ -247,17 +317,22 @@ impl Selection for Selector {
                 } in fields
                 {
                     let subfield_name = &name[..];
+                    println!("Record field: {}", subfield_name);
                     /* Select: */
-                    self.select(
+                    start = self.select(
                         checker,
                         subscriptions_by_field,
                         schema,
-                        &[ROOT_FIELD_PATH, FIELD_SEPARATOR, map_name, subfield_name].concat(),
+                        &[field_name, FIELD_SEPARATOR, subfield_name].concat(),
                         &message[start..message.len()],
                     );
                 }
+
+                start
             }
-            _ => {}
+            _ => {
+                0
+            }
         }
     }
 }

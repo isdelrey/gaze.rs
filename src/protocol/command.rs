@@ -28,7 +28,7 @@ impl TryFrom<u8> for Command {
             0x10 => Ok(Command::SchemaNeeded),
             0x11 => Ok(Command::NoSchema),
             _ => {
-                println!("Received unmappable command {}", byte);
+                //println!("Received unmappable command {}", byte);
                 Err("Cannot convert u8 to Command: byte not valid")
             },
         }

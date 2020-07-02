@@ -19,7 +19,7 @@ pub trait WriteProtocol {
 #[async_trait]
 impl WriteProtocol for OwnedWriteHalf {
     async fn write_command(&mut self, command: Command) {
-        println!("Writing {:?}", command);
+        //println!("Writing {:?}", command);
         self.write(&[command as u8]).await.unwrap();
     }
 

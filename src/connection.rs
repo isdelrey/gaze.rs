@@ -22,7 +22,7 @@ impl Connection {
     }
 
     pub async fn accept(connection: Connection) {
-        println!("Accepted connection from {}", connection.client.address);
+        //println!("Accepted connection from {}", connection.client.address);
         let connection = Arc::new(connection);
 
         /* Eating loop: */

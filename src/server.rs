@@ -24,13 +24,13 @@ pub async fn create<'c>() {
 
     let router: Arc<Router> = Arc::new(Router::new());
 
-    println!("Ready on localhost:6142");
+    //println!("Ready on localhost:6142");
     let mut incoming: Incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         match stream {
             Ok(stream) => handle_incoming(stream, router.clone()).await,
             Err(err) => {
-                println!("accept error = {:?}", err);
+                //println!("accept error = {:?}", err);
             }
         };
     }

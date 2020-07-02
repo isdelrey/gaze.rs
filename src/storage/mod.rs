@@ -21,7 +21,7 @@ impl Store {
     pub fn new() -> Arc<RwLock<Store>> {
         let memory = sys_info::mem_info().unwrap();
         let btree_size = ((memory.avail + memory.swap_free) as f64 * INNER_ALLOC_PERCENTAGE) as usize;
-        println!("Total memory: {} MB, Available memory: {} MB, Available swap: {} MB, Percentage for Store: {}, Reserved: {} MB", memory.total / 1024, memory.avail / 1024, memory.swap_free / 1024,  INNER_ALLOC_PERCENTAGE, btree_size / 1024);
+        //println!("Total memory: {} MB, Available memory: {} MB, Available swap: {} MB, Percentage for Store: {}, Reserved: {} MB", memory.total / 1024, memory.avail / 1024, memory.swap_free / 1024,  INNER_ALLOC_PERCENTAGE, btree_size / 1024);
 
 
         let store = Arc::new(RwLock::new(Store {
@@ -69,7 +69,7 @@ impl Store {
         /* Discard offsets above current stored: */
         if offset > self.current { return }
 
-        println!("Reading from store");
+        //println!("Reading from store");
 
         /* Create past selector: */
         let mut selector = Selector::new();
@@ -80,7 +80,7 @@ impl Store {
         /* Process past messages: */
         let registry = router.registry.read().await;
         for (&key, (message_type, message)) in self.btree.range(offset..) {
-            println!("Store item: {} -> {:?} {:?}", key, message_type, message);
+            //println!("Store item: {} -> {:?} {:?}", key, message_type, message);
             let schema = registry.get(&message_type[..]).unwrap();
             selector.distribute(message_type, schema, message).await;
         }

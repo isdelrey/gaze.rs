@@ -19,7 +19,7 @@ pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 async fn main() {
     tokio::spawn(server::create());
     
-    println!("Gaze started");
+    //println!("Gaze started");
     thread::park();
 
     ()

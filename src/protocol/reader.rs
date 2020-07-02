@@ -21,7 +21,7 @@ impl ReadProtocol for OwnedReadHalf {
 
         let parsed_command = Command::try_from(command[0]).unwrap();
 
-        println!("{:?} received", parsed_command);
+        //println!("{:?} received", parsed_command);
         Ok(parsed_command)
     }
 
@@ -35,7 +35,7 @@ impl ReadProtocol for OwnedReadHalf {
 
     async fn read_message(&mut self) -> (Vec<u8>, u32) {
         let length = self.read_size().await;
-        println!("Message size: {}", length);
+        //println!("Message size: {}", length);
 
         let mut message = vec![0u8; length as usize];
 

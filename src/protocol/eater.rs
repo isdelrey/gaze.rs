@@ -85,12 +85,14 @@ impl Eater {
                     store.append(id, message_type, message).expect("Cannot write to storage");
                     //println!("Wrote to storage");
                 }
+                
+                println!("*");
 
-                tokio::spawn(Eater::acknowledge(
-                    Ok(()),
-                    id.to_vec(),
-                    connection.client.writer.clone(),
-                ));
+                // tokio::spawn(Eater::acknowledge(
+                //     Ok(()),
+                //     id.to_vec(),
+                //     connection.client.writer.clone(),
+                // ));
             }
             Ok(Command::Schema) => {
                 /* Get message type: */

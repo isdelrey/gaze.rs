@@ -47,9 +47,13 @@ This function then calls `Eater::eat` (see [`eater.rs`](https://github.com/ivose
     └── mod.rs           # Storage structure and methods
 ```
 
-### 2. How to run
+### 4. How to run
 #### Raw
 To run this project, make sure you have [Rust](https://rustup.rs/) installed. Clone the repo and run `cargo run`.
 
 #### With Docker
 Make sure you have [Docker](https://docs.docker.com/get-docker/) installed. Run `docker build .` on the root of this project to build a Docker image. Once the image has been build, run `docker run <image-name>`.
+
+
+### 5. Client
+You can find the client library and use examples in the [gaze.rs client repo](https://github.com/ivosequeros/gaze.rs-client).

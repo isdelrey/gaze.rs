@@ -1,6 +1,6 @@
 <p align="center">
 <img src="https://raw.githubusercontent.com/ivosequeros/gaze/master/docs/title.png" height="120"></p>
-<p align="center">Gaze is a performant Rust-written event sourcing engine with in-memory storage based on Avro encoding</p>
+<p align="center"><b>Gaze is a performant Rust-written event sourcing engine with in-memory storage based on Avro encoding</b></p>
 
 ---
 

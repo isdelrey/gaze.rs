@@ -140,7 +140,7 @@ impl VarIntDecoder for &[u8] {
         let mut i = 0;
 
         while i < self.len() {
-            //println!("v8: {:?}", self[i]);
+            println!("v8: {:?}", self[i]);
             let msb_dropped = self[i] & DROP_MSB;
             result |= (msb_dropped as usize) << shift;
             shift += 7;

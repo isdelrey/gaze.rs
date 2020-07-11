@@ -19,9 +19,9 @@ impl ReadProtocol for OwnedReadHalf {
         let mut command: &mut [u8] = &mut [0u8; 1];
         self.read_exact(&mut command).await?;
 
-        let parsed_command = Command::try_from(command[0]).unwrap();
+        let parsed_command = Command::try_from(command[0])
+            .expect(&format!("Received unknown command {}", command[0]));
 
-        //println!("{:?} received", parsed_command);
         Ok(parsed_command)
     }
 
@@ -35,7 +35,7 @@ impl ReadProtocol for OwnedReadHalf {
 
     async fn read_message(&mut self) -> (Vec<u8>, u32) {
         let length = self.read_size().await;
-        //println!("Message size: {}", length);
+        println!("Message size: {}", length);
 
         let mut message = vec![0u8; length as usize];
 

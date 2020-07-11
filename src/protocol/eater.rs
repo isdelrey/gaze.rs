@@ -5,36 +5,48 @@ use crate::errors::ConnectionError;
 use crate::protocol::command::Command;
 use crate::protocol::reader::ReadProtocol;
 use crate::protocol::writer::WriteProtocol;
-use crate::selection::selector::{Selection};
+use crate::selection::selector::Selection;
 use futures::lock::Mutex;
+use std::io::Write;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::OwnedWriteHalf;
+use tokio::time::delay_for;
+
+static total_messages: AtomicUsize = AtomicUsize::new(0);
 
 pub struct Eater {}
 
 impl Eater {
+    pub async fn report_total_messages() {
+        loop {
+            delay_for(std::time::Duration::from_secs(1)).await;
+            println!("Msg/s: {:?}", total_messages);
+            total_messages.store(0, Ordering::SeqCst);
+        }
+    }
     pub async fn read(connection: Arc<Connection>) -> Result<ConnectionStatus, ConnectionError> {
         let mut reader = connection.client.reader.lock().await;
 
         let command = reader.read_command().await;
-
+        let start = std::time::Instant::now();
         match command {
             Ok(Command::Message) => {
                 /* Get message ID: */
                 let mut id = [0u8; 6];
                 reader.read_exact(&mut id).await.unwrap();
-                //println!("Message id: {:?}", id);
+                println!("Message id: {:?}", id);
 
                 /* Get message type: */
                 let mut message_type = [0u8; 4];
                 reader.read_exact(&mut message_type).await.unwrap();
-                //println!("Message type: {:?}", message_type);
+                println!("Message type: {:?}", message_type);
 
                 /* Get message: */
                 let (message, size) = reader.read_message().await;
-                //println!("Message: {:?}", message);
+                println!("Message: {:?}", message);
 
                 /* Access registry: */
                 let registry = connection.router.registry.read().await;
@@ -44,9 +56,8 @@ impl Eater {
                     Some(schema) => schema,
                     None => {
                         let mut writer = connection.client.writer.lock().await;
-                        
                         /* Write command */
-                        writer.write_command(Command::SchemaNeeded).await;
+                        writer.write_command(Command::NoSchema).await;
 
                         /* Write message type: */
                         writer
@@ -69,23 +80,19 @@ impl Eater {
                 /* Apply selector: */
                 let selector = connection.router.selector.read().await;
                 selector
-                    .distribute(
-                        &message_type[..],
-                        &schema,
-                        &message,
-                    )
+                    .distribute(&message_type[..], &schema, &message)
                     .await;
-                //println!("Distribution completed");
+                println!("Distribution completed");
 
                 /* Write to storage: */
                 {
-
-                    //println!("Writing to storage");
+                    println!("Writing to storage");
                     let mut store = connection.router.store.write().await;
-                    store.append(id, message_type, message).expect("Cannot write to storage");
-                    //println!("Wrote to storage");
+                    store
+                        .append(id, message_type, message)
+                        .expect("Cannot write to storage");
+                    println!("Wrote to storage");
                 }
-                
                 println!("*");
 
                 // tokio::spawn(Eater::acknowledge(
@@ -93,6 +100,8 @@ impl Eater {
                 //     id.to_vec(),
                 //     connection.client.writer.clone(),
                 // ));
+
+                total_messages.fetch_add(1, Ordering::SeqCst);
             }
             Ok(Command::Schema) => {
                 /* Get message type: */
@@ -101,12 +110,12 @@ impl Eater {
 
                 /* Get length: */
                 let size = reader.read_size().await;
-                //println!("Schema size is {}", size);
+                println!("Schema size is {}", size);
 
                 /* Get schema: */
                 let mut schema = vec![0u8; size as usize];
                 reader.read_exact(&mut schema).await.unwrap();
-                //println!("Schema is {:?}", schema);
+                println!("Schema is {:?}", schema);
 
                 /* Access registry: */
                 let mut registry = connection.router.registry.write().await;
@@ -115,7 +124,7 @@ impl Eater {
                 let raw_schema = String::from_utf8(schema).expect("Found invalid UTF-8");
                 registry.add(message_type.to_vec(), raw_schema);
             }
-            Ok(Command::SchemaNeeded) => {
+            Ok(Command::NoSchema) => {
                 /* Get message type: */
                 let mut message_type = [0u8; 4];
                 reader.read_exact(&mut message_type).await.unwrap();
@@ -161,34 +170,33 @@ impl Eater {
                     .await
                     .expect("Cannot write message");
             }
-            Ok(Command::Subscription) => {
+            Ok(Command::Subscribe) => {
                 /* Get offset: */
                 let mut raw_offset = [0u8; 8];
                 reader.read_exact(&mut raw_offset[2..8]).await.unwrap();
                 let offset = u64::from_le_bytes(raw_offset);
-                //println!("Offset: {:?} -> {}", raw_offset, offset);
+                println!("Offset: {:?} -> {}", raw_offset, offset);
 
                 /* Get subscription ID: */
                 let mut subscription_id = [0u8; 4];
                 reader.read_exact(&mut subscription_id).await.unwrap();
-                //println!("Subscription id: {:?}", subscription_id);
+                println!("Subscription id: {:?}", subscription_id);
 
                 /* Get filter length: */
                 let size = reader.read_size().await;
-                //println!("Filter size: {}", size);
+                println!("Filter size: {}", size);
 
                 /* Get filter: */
                 let mut raw_filter = vec![0u8; size as usize];
                 reader.read_exact(&mut raw_filter).await.unwrap();
 
-
                 let filter: serde_json::Value = serde_json::from_str(
                     std::str::from_utf8(&raw_filter).expect("Cannot decode filter"),
-                ).expect("Cannot deserialise filter");
-                //println!("Filter: {:?} -> {:?}", raw_filter, filter);
+                )
+                .expect("Cannot deserialise filter");
+                println!("Filter: {:?} -> {:?}", raw_filter, filter);
 
                 let store = connection.router.store.read().await;
-                let reading_from_store = store.current > offset;
 
                 /* Add subscription: */
                 let subscription = Client::add_subscription(
@@ -198,28 +206,30 @@ impl Eater {
                 )
                 .await
                 .expect("Cannot add subscription");
-                //println!("Built subscription");
+                println!("Built subscription");
 
                 /* Attach to store until all contents read: */
                 {
                     let store = connection.router.store.read().await;
-                    store.pipe(offset, subscription.clone(), connection.router.clone()).await;
+                    store
+                        .pipe(offset, subscription.clone(), connection.router.clone())
+                        .await;
                 }
 
                 /* Integrate subscription: */
                 {
                     let mut selector = connection.router.selector.write().await;
                     subscription.integrate(&mut selector);
-                    //println!("Integrated subscription");
+                    println!("Integrated subscription");
                 }
-            },
+            }
             _ => {
-                //println!("End connection");
+                println!("End connection");
                 return Ok(ConnectionStatus::End);
             }
         }
 
-        //println!("Keep connection");
+        println!("Keep connection");
         Ok(ConnectionStatus::Keep)
     }
     pub async fn acknowledge(

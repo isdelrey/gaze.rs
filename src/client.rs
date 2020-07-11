@@ -16,7 +16,7 @@ pub struct Client {
     pub reader: Arc<Mutex<OwnedReadHalf>>,
     pub writer: Arc<Mutex<OwnedWriteHalf>>,
     pub address: String,
-    pub subscriptions: Arc<RwLock<Vec<Arc<Subscription>>>>,
+    pub subscriptions: Arc<RwLock<Vec<Arc<Subscription>>>>
 }
 
 impl Client {
@@ -34,7 +34,7 @@ impl Client {
             reader: Arc::new(Mutex::new(reader)),
             writer: Arc::new(Mutex::new(writer)),
             address,
-            subscriptions: Arc::new(RwLock::new(Vec::new())),
+            subscriptions: Arc::new(RwLock::new(Vec::new()))
         }
     }
     pub async fn add_subscription(

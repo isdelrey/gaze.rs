@@ -118,7 +118,7 @@ impl FilterBuilder for Filter {
             filter.push(type_constraints);
         }
 
-        //println!("Filter build: {:?}", filter);
+        println!("Filter build: {:?}", filter);
 
         Ok(filter)
     }
